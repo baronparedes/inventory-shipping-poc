@@ -4,8 +4,13 @@ import Modal from "../../components/Modal";
 import {usePrototypeState} from "../../state/usePrototypeState";
 
 export function StoreInventory() {
-  const {storeInventory, shippingOrders, receiveShipment, selectedStoreId} =
-    usePrototypeState();
+  const {
+    storeInventory,
+    inventoryTransactions,
+    shippingOrders,
+    receiveShipment,
+    selectedStoreId,
+  } = usePrototypeState();
   const defaultStore = getStoreById(selectedStoreId) ?? stores[0];
   const availableShipments = useMemo(
     () =>
@@ -37,6 +42,14 @@ export function StoreInventory() {
 
   const selectedShipmentTotalQty =
     selectedShipment?.items.reduce((acc, item) => acc + item.quantity, 0) ?? 0;
+
+  const branchTransactions = useMemo(
+    () =>
+      inventoryTransactions
+        .filter(transaction => transaction.storeId === defaultStore.id)
+        .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
+    [inventoryTransactions, defaultStore.id],
+  );
 
   return (
     <section>
@@ -124,6 +137,58 @@ export function StoreInventory() {
         </table>
 
         {feedback && <div className="preview-banner">{feedback}</div>}
+      </article>
+
+      <article className="card">
+        <h3>Branch Item Movement Transaction Log</h3>
+        <p className="muted-copy">
+          Detailed ledger of all inbound and outbound medication movement for this branch.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Type</th>
+              <th>SKU</th>
+              <th>Medication</th>
+              <th>Qty</th>
+              <th>Reference</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {branchTransactions.length ? (
+              branchTransactions.map(transaction => {
+                const product = getProductById(transaction.productId);
+
+                return (
+                  <tr key={transaction.id}>
+                    <td>{new Date(transaction.occurredAt).toLocaleString()}</td>
+                    <td>
+                      <span
+                        className={`status-badge ${
+                          transaction.movementType === "IN" ? "healthy" : "warning"
+                        }`}
+                      >
+                        {transaction.movementType}
+                      </span>
+                    </td>
+                    <td>{product?.sku ?? transaction.productId}</td>
+                    <td>{product?.name ?? transaction.productId}</td>
+                    <td>{transaction.quantity}</td>
+                    <td>{transaction.reference}</td>
+                    <td>{transaction.note}</td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={7}>No branch item movement transactions recorded yet.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </article>
 
       {isShipmentModalOpen && selectedShipment ? (

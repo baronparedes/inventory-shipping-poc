@@ -3,7 +3,7 @@ import {getProductById, stores} from "../../mocks/mockData";
 import {usePrototypeState} from "../../state/usePrototypeState";
 
 export function WarehouseMonitor() {
-  const {storeInventory} = usePrototypeState();
+  const {storeInventory, inventoryTransactions} = usePrototypeState();
   const [selectedBranchId, setSelectedBranchId] = useState(stores[0]?.id ?? "");
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
 
@@ -19,6 +19,18 @@ export function WarehouseMonitor() {
         }))
         .filter(item => item.product),
     [storeInventory, selectedBranch?.id],
+  );
+
+  const networkTransactions = useMemo(
+    () =>
+      inventoryTransactions
+        .map(transaction => ({
+          ...transaction,
+          branch: stores.find(store => store.id === transaction.storeId),
+          product: getProductById(transaction.productId),
+        }))
+        .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
+    [inventoryTransactions],
   );
 
   useEffect(() => {
@@ -95,6 +107,58 @@ export function WarehouseMonitor() {
                 </tr>
               );
             })}
+          </tbody>
+        </table>
+      </article>
+
+      <article className="card">
+        <h3>Network Item Movement Ledger</h3>
+        <p className="muted-copy">
+          Consolidated inventory movement log across all branch pharmacies.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Branch</th>
+              <th>City</th>
+              <th>Type</th>
+              <th>SKU</th>
+              <th>Medication</th>
+              <th>Qty</th>
+              <th>Reference</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {networkTransactions.length ? (
+              networkTransactions.map(transaction => (
+                <tr key={transaction.id}>
+                  <td>{new Date(transaction.occurredAt).toLocaleString()}</td>
+                  <td>{transaction.branch?.name ?? transaction.storeId}</td>
+                  <td>{transaction.branch?.city ?? "-"}</td>
+                  <td>
+                    <span
+                      className={`status-badge ${
+                        transaction.movementType === "IN" ? "healthy" : "warning"
+                      }`}
+                    >
+                      {transaction.movementType}
+                    </span>
+                  </td>
+                  <td>{transaction.product?.sku ?? transaction.productId}</td>
+                  <td>{transaction.product?.name ?? transaction.productId}</td>
+                  <td>{transaction.quantity}</td>
+                  <td>{transaction.reference}</td>
+                  <td>{transaction.note}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={9}>No inventory transactions recorded across branches yet.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </article>

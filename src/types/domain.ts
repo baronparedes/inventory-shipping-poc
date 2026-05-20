@@ -23,6 +23,17 @@ export interface StoreInventoryItem {
   weeklyOutflow: number;
 }
 
+export interface InventoryTransaction {
+  id: string;
+  storeId: string;
+  productId: string;
+  movementType: "IN" | "OUT";
+  quantity: number;
+  occurredAt: string;
+  reference: string;
+  note: string;
+}
+
 export interface CustomerOrderItem {
   productId: string;
   quantity: number;

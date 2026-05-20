@@ -7,6 +7,7 @@ import {
 } from "../mocks/mockData";
 import type {
   CustomerOrder,
+  InventoryTransaction,
   ReorderRequest,
   Role,
   ShippingOrder,
@@ -22,6 +23,7 @@ const STORAGE_KEY = "inventory-shipping-prototype-state-v1";
 
 interface PrototypeStateData {
   storeInventory: StoreInventoryItem[];
+  inventoryTransactions: InventoryTransaction[];
   customerOrders: CustomerOrder[];
   reorderRequests: ReorderRequest[];
   shippingOrders: ShippingOrder[];
@@ -32,6 +34,7 @@ interface PrototypeStateData {
 function cloneInitialState(): PrototypeStateData {
   return {
     storeInventory: initialStoreInventory.map(item => ({...item})),
+    inventoryTransactions: [],
     customerOrders: [],
     reorderRequests: initialReorderRequests.map(request => ({
       ...request,
@@ -41,6 +44,68 @@ function cloneInitialState(): PrototypeStateData {
     preferredRole: "store",
     selectedStoreId: stores[0]?.id ?? "",
   };
+}
+
+function normalizeInventoryTransactions(value: unknown): InventoryTransaction[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map(entry => {
+      if (!entry || typeof entry !== "object") return null;
+
+      const typedEntry = entry as {
+        id?: unknown;
+        storeId?: unknown;
+        productId?: unknown;
+        movementType?: unknown;
+        quantity?: unknown;
+        occurredAt?: unknown;
+        reference?: unknown;
+        note?: unknown;
+      };
+
+      const id = typeof typedEntry.id === "string" ? typedEntry.id : "";
+      const storeId = typeof typedEntry.storeId === "string" ? typedEntry.storeId : "";
+      const productId =
+        typeof typedEntry.productId === "string" ? typedEntry.productId : "";
+      const movementType =
+        typedEntry.movementType === "IN" || typedEntry.movementType === "OUT"
+          ? typedEntry.movementType
+          : null;
+      const quantity =
+        typeof typedEntry.quantity === "number" && typedEntry.quantity > 0
+          ? Math.floor(typedEntry.quantity)
+          : 0;
+      const occurredAt =
+        typeof typedEntry.occurredAt === "string" ? typedEntry.occurredAt : "";
+      const reference =
+        typeof typedEntry.reference === "string" ? typedEntry.reference : "";
+      const note = typeof typedEntry.note === "string" ? typedEntry.note : "";
+
+      if (
+        !id ||
+        !storeId ||
+        !productId ||
+        !movementType ||
+        !quantity ||
+        !occurredAt ||
+        !reference
+      ) {
+        return null;
+      }
+
+      return {
+        id,
+        storeId,
+        productId,
+        movementType,
+        quantity,
+        occurredAt,
+        reference,
+        note,
+      };
+    })
+    .filter(Boolean) as InventoryTransaction[];
 }
 
 function isValidRole(value: unknown): value is Role {
@@ -209,6 +274,7 @@ function loadState(): PrototypeStateData {
       storeInventory: Array.isArray(parsed.storeInventory)
         ? parsed.storeInventory
         : fallback.storeInventory,
+      inventoryTransactions: normalizeInventoryTransactions(parsed.inventoryTransactions),
       customerOrders: normalizeCustomerOrders(parsed.customerOrders),
       reorderRequests: normalizedReorderRequests,
       shippingOrders: Array.isArray(parsed.shippingOrders)
@@ -257,6 +323,15 @@ function buildCustomerOrderId(existing: CustomerOrder[]): string {
   return `ord-${max + 1}`;
 }
 
+function buildInventoryTransactionId(existing: InventoryTransaction[]): string {
+  const max = existing
+    .map(transaction => Number(transaction.id.replace("txn-", "")))
+    .filter(Number.isFinite)
+    .reduce((acc, value) => Math.max(acc, value), 0);
+
+  return `txn-${max + 1}`;
+}
+
 export function PrototypeStateProvider({children}: PropsWithChildren) {
   const [state, setState] = useState<PrototypeStateData>(() => loadState());
 
@@ -272,20 +347,35 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
           Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 0;
         if (!safeQty) return;
 
-        setState(previous => ({
-          ...previous,
-          storeInventory: previous.storeInventory.map(item => {
-            if (item.storeId !== storeId || item.productId !== productId) {
-              return item;
-            }
+        setState(previous => {
+          const timestamp = new Date().toISOString();
+          const nextTransaction: InventoryTransaction = {
+            id: buildInventoryTransactionId(previous.inventoryTransactions),
+            storeId,
+            productId,
+            movementType,
+            quantity: safeQty,
+            occurredAt: timestamp,
+            reference: "manual-adjustment",
+            note: "Inventory adjustment",
+          };
 
-            const delta = movementType === "IN" ? safeQty : -safeQty;
-            return {
-              ...item,
-              onHand: Math.max(0, item.onHand + delta),
-            };
-          }),
-        }));
+          return {
+            ...previous,
+            storeInventory: previous.storeInventory.map(item => {
+              if (item.storeId !== storeId || item.productId !== productId) {
+                return item;
+              }
+
+              const delta = movementType === "IN" ? safeQty : -safeQty;
+              return {
+                ...item,
+                onHand: Math.max(0, item.onHand + delta),
+              };
+            }),
+            inventoryTransactions: [nextTransaction, ...previous.inventoryTransactions],
+          };
+        });
       },
       createReorderRequest: input => {
         let createdId = "";
@@ -402,6 +492,7 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
           }
 
           receivedId = shipment.id;
+          const timestamp = new Date().toISOString();
           const itemMap = shipment.items.reduce(
             (acc, item) => {
               acc[item.productId] = (acc[item.productId] ?? 0) + item.quantity;
@@ -409,6 +500,22 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
             },
             {} as Record<string, number>,
           );
+
+          let transactionSeed = previous.inventoryTransactions;
+          const transactions = Object.entries(itemMap).map(([productId, quantity]) => {
+            const nextTransaction: InventoryTransaction = {
+              id: buildInventoryTransactionId(transactionSeed),
+              storeId: shipment.storeId,
+              productId,
+              movementType: "IN",
+              quantity,
+              occurredAt: timestamp,
+              reference: shipment.id,
+              note: "Shipment received",
+            };
+            transactionSeed = [nextTransaction, ...transactionSeed];
+            return nextTransaction;
+          });
 
           return {
             ...previous,
@@ -420,6 +527,7 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
             shippingOrders: previous.shippingOrders.map(order =>
               order.id === shipment.id ? {...order, status: "Delivered"} : order,
             ),
+            inventoryTransactions: [...transactions, ...previous.inventoryTransactions],
           };
         });
 
@@ -475,6 +583,22 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
             servedAt: new Date().toISOString(),
           };
 
+          let transactionSeed = previous.inventoryTransactions;
+          const transactions = nextOrder.items.map(item => {
+            const nextTransaction: InventoryTransaction = {
+              id: buildInventoryTransactionId(transactionSeed),
+              storeId: input.storeId,
+              productId: item.productId,
+              movementType: "OUT",
+              quantity: item.quantity,
+              occurredAt: nextOrder.servedAt,
+              reference: nextOrder.id,
+              note: `Customer order ${nextOrder.orderRef}`,
+            };
+            transactionSeed = [nextTransaction, ...transactionSeed];
+            return nextTransaction;
+          });
+
           return {
             ...previous,
             storeInventory: previous.storeInventory.map(item =>
@@ -486,6 +610,7 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
                 : item,
             ),
             customerOrders: [nextOrder, ...previous.customerOrders],
+            inventoryTransactions: [...transactions, ...previous.inventoryTransactions],
           };
         });
 

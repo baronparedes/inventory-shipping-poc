@@ -1,6 +1,7 @@
 import {createContext} from "react";
 import type {
   CustomerOrder,
+  InventoryTransaction,
   ReorderRequest,
   Role,
   ShippingOrder,
@@ -23,6 +24,7 @@ interface CreateShippingInput {
 
 export interface PrototypeStateContextValue {
   storeInventory: StoreInventoryItem[];
+  inventoryTransactions: InventoryTransaction[];
   customerOrders: CustomerOrder[];
   reorderRequests: ReorderRequest[];
   shippingOrders: ShippingOrder[];
