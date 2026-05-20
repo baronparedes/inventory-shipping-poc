@@ -10,59 +10,69 @@ import type {
 export const roles: Role[] = ["store", "warehouse"];
 
 export const stores: Store[] = [
-  {id: "store-north", name: "North Market", city: "Austin", manager: "T. Rivera"},
-  {id: "store-east", name: "East Corner", city: "Dallas", manager: "L. Brooks"},
-  {id: "store-west", name: "West Harbor", city: "Houston", manager: "C. Nguyen"},
+  {
+    id: "store-north",
+    name: "NorthCare Pharmacy",
+    city: "Austin",
+    manager: "T. Rivera",
+  },
+  {id: "store-east", name: "EastCare Pharmacy", city: "Dallas", manager: "L. Brooks"},
+  {
+    id: "store-west",
+    name: "WestCare Pharmacy",
+    city: "Houston",
+    manager: "C. Nguyen",
+  },
 ];
 
 export const products: Product[] = [
   {
     id: "prd-rice",
-    sku: "DRY-100",
-    name: "Rice 25 lb",
-    category: "Dry Goods",
-    reorderThreshold: 25,
-    warehouseStock: 420,
+    sku: "RX-100",
+    name: "Amoxicillin 500 mg",
+    category: "Prescription",
+    reorderThreshold: 60,
+    warehouseStock: 950,
   },
   {
     id: "prd-flour",
-    sku: "DRY-110",
-    name: "Bread Flour 20 lb",
-    category: "Dry Goods",
-    reorderThreshold: 20,
-    warehouseStock: 275,
+    sku: "RX-112",
+    name: "Lisinopril 20 mg",
+    category: "Prescription",
+    reorderThreshold: 55,
+    warehouseStock: 840,
   },
   {
     id: "prd-tomato",
-    sku: "PRD-210",
-    name: "Tomato Crate",
-    category: "Produce",
-    reorderThreshold: 18,
-    warehouseStock: 94,
+    sku: "OTC-210",
+    name: "Ibuprofen 200 mg",
+    category: "OTC",
+    reorderThreshold: 75,
+    warehouseStock: 1280,
   },
   {
     id: "prd-salmon",
-    sku: "FRZ-301",
-    name: "Frozen Salmon Box",
-    category: "Frozen",
-    reorderThreshold: 16,
-    warehouseStock: 66,
+    sku: "CC-301",
+    name: "Insulin Pen 3 mL",
+    category: "Cold Chain",
+    reorderThreshold: 28,
+    warehouseStock: 260,
   },
   {
     id: "prd-wrap",
-    sku: "PKG-401",
-    name: "Shipping Wrap Rolls",
-    category: "Packaging",
-    reorderThreshold: 30,
-    warehouseStock: 340,
+    sku: "SUP-401",
+    name: "Syringe 1 mL",
+    category: "Supplies",
+    reorderThreshold: 120,
+    warehouseStock: 2450,
   },
   {
     id: "prd-label",
-    sku: "PKG-422",
-    name: "Thermal Label Pack",
-    category: "Packaging",
-    reorderThreshold: 35,
-    warehouseStock: 130,
+    sku: "SUP-422",
+    name: "Prescription Label Roll",
+    category: "Supplies",
+    reorderThreshold: 90,
+    warehouseStock: 710,
   },
 ];
 
@@ -112,12 +122,29 @@ export const reorderRequests: ReorderRequest[] = [
 
 export const shippingOrders: ShippingOrder[] = [
   {
+    id: "ship-770",
+    requestId: "req-1008",
+    storeId: "store-north",
+    shipDate: "2026-05-20",
+    eta: "2026-05-21",
+    status: "In Transit",
+    items: [
+      {productId: "prd-rice", quantity: 40},
+      {productId: "prd-flour", quantity: 32},
+      {productId: "prd-salmon", quantity: 24},
+    ],
+  },
+  {
     id: "ship-771",
     requestId: "req-1010",
     storeId: "store-east",
     shipDate: "2026-05-21",
     eta: "2026-05-22",
     status: "Packed",
+    items: [
+      {productId: "prd-tomato", quantity: 36},
+      {productId: "prd-label", quantity: 22},
+    ],
   },
 ];
 

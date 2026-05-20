@@ -1,26 +1,33 @@
 import {Link} from "react-router-dom";
-import {getLowStockItems, getProductById, getStoreById, stores} from "../../mocks/mockData";
-
-const focusStore = stores[0];
+import {getProductById, getStoreById, stores} from "../../mocks/mockData";
+import {usePrototypeState} from "../../state/usePrototypeState";
 
 export function StoreDashboard() {
-  const lowStockItems = getLowStockItems(focusStore.id);
+  const {storeInventory, selectedStoreId} = usePrototypeState();
+  const focusStore = getStoreById(selectedStoreId) ?? stores[0];
+
+  const lowStockItems = storeInventory.filter(item => {
+    if (item.storeId !== focusStore.id) return false;
+    const product = getProductById(item.productId);
+    return product ? item.onHand <= product.reorderThreshold : false;
+  });
 
   return (
     <section>
       <header className="section-head">
         <div>
-          <p className="eyebrow">Store View</p>
-          <h2>{focusStore.name} Stock Pulse</h2>
+          <p className="eyebrow">Pharmacy Branch View</p>
+          <h2>{focusStore.name} Medication Stock Pulse</h2>
           <p className="muted-copy">
-            Manager: {getStoreById(focusStore.id)?.manager} | City: {focusStore.city}
+            Pharmacist Lead: {getStoreById(focusStore.id)?.manager} | City:{" "}
+            {focusStore.city}
           </p>
         </div>
       </header>
 
       <div className="kpi-grid">
         <article className="card kpi-card">
-          <span className="kpi-label">Low Stock SKUs</span>
+          <span className="kpi-label">Low Stock Medication SKUs</span>
           <p className="kpi-value">{lowStockItems.length}</p>
         </article>
         <article className="card kpi-card">
@@ -28,16 +35,16 @@ export function StoreDashboard() {
           <p className="kpi-value">6</p>
         </article>
         <article className="card kpi-card">
-          <span className="kpi-label">Weekly Outflow</span>
+          <span className="kpi-label">Weekly Dispense Volume</span>
           <p className="kpi-value">62 units</p>
         </article>
       </div>
 
       <article className="card">
         <div className="table-header">
-          <h3>Immediate Reorder Candidates</h3>
+          <h3>Immediate Refill Candidates</h3>
           <Link className="text-link" to="/app/store/reorder">
-            Open Reorder Form
+            Open Refill Request Form
           </Link>
         </div>
         <table>

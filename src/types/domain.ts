@@ -4,7 +4,7 @@ export interface Product {
   id: string;
   sku: string;
   name: string;
-  category: "Produce" | "Dry Goods" | "Frozen" | "Packaging";
+  category: "OTC" | "Prescription" | "Cold Chain" | "Supplies";
   reorderThreshold: number;
   warehouseStock: number;
 }
@@ -23,6 +23,20 @@ export interface StoreInventoryItem {
   weeklyOutflow: number;
 }
 
+export interface CustomerOrderItem {
+  productId: string;
+  quantity: number;
+}
+
+export interface CustomerOrder {
+  id: string;
+  storeId: string;
+  customerName: string;
+  orderRef: string;
+  items: CustomerOrderItem[];
+  servedAt: string;
+}
+
 export interface ReorderRequestItem {
   productId: string;
   requestedQty: number;
@@ -33,8 +47,13 @@ export interface ReorderRequest {
   storeId: string;
   createdAt: string;
   priority: "Low" | "Medium" | "High";
-  status: "Pending" | "Approved" | "Fulfilled";
+  status: "Draft" | "Pending" | "Approved" | "Fulfilled";
   items: ReorderRequestItem[];
+}
+
+export interface ShippingOrderItem {
+  productId: string;
+  quantity: number;
 }
 
 export interface ShippingOrder {
@@ -44,4 +63,5 @@ export interface ShippingOrder {
   shipDate: string;
   eta: string;
   status: "Draft" | "Packed" | "In Transit" | "Delivered";
+  items: ShippingOrderItem[];
 }

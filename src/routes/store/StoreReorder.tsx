@@ -1,33 +1,46 @@
-import {useMemo} from "react";
-import {getLowStockItems, getProductById, stores} from "../../mocks/mockData";
-
-const activeStore = stores[0];
+import {useMemo, useState} from "react";
+import {getProductById, getStoreById, stores} from "../../mocks/mockData";
+import {usePrototypeState} from "../../state/usePrototypeState";
 
 export function StoreReorder() {
+  const {storeInventory, createReorderRequest, selectedStoreId} = usePrototypeState();
+  const activeStore = getStoreById(selectedStoreId) ?? stores[0];
+  const [feedback, setFeedback] = useState("");
+
   const lowStockRows = useMemo(
     () =>
-      getLowStockItems(activeStore.id)
+      storeInventory
+        .filter(item => {
+          if (item.storeId !== activeStore.id) return false;
+          const product = getProductById(item.productId);
+          return product ? item.onHand <= product.reorderThreshold : false;
+        })
         .map(item => ({...item, product: getProductById(item.productId)}))
         .filter(item => item.product),
-    [],
+    [storeInventory, activeStore.id],
   );
+
+  const requestItems = lowStockRows.map(row => ({
+    productId: row.productId,
+    requestedQty: (row.product?.reorderThreshold ?? 0) * 2,
+  }));
 
   return (
     <section>
       <header className="section-head">
         <div>
-          <p className="eyebrow">Store Workflow</p>
-          <h2>Create Reorder Request</h2>
+          <p className="eyebrow">Pharmacy Branch Workflow</p>
+          <h2>Create Refill Request</h2>
           <p className="muted-copy">
-            Raise a stock replenishment request to the warehouse when inventory drops.
+            Raise a replenishment request to central distribution when branch stock drops.
           </p>
         </div>
       </header>
 
       <article className="card">
         <div className="table-header">
-          <h3>Low Stock Request Builder</h3>
-          <span className="status-badge warning">Draft Request</span>
+          <h3>Low Stock Refill Builder</h3>
+          <span className="status-badge warning">Refill Request Ready</span>
         </div>
 
         <table>
@@ -61,12 +74,23 @@ export function StoreReorder() {
           </tbody>
         </table>
 
+        {feedback && <div className="preview-banner">{feedback}</div>}
+
         <div className="actions-row">
-          <button type="button" className="secondary-btn">
-            Save as Draft
-          </button>
-          <button type="button" className="primary-btn">
-            Submit to Warehouse
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => {
+              const createdId = createReorderRequest({
+                storeId: activeStore.id,
+                priority: "High",
+                status: "Pending",
+                items: requestItems,
+              });
+              setFeedback(`Refill request ${createdId} submitted and persisted.`);
+            }}
+          >
+            Submit to Distribution
           </button>
         </div>
       </article>

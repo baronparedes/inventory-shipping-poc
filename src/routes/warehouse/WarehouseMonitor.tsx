@@ -1,36 +1,74 @@
-import {getLowStockItems, stores} from "../../mocks/mockData";
+import {useEffect, useMemo, useState} from "react";
+import {getProductById, stores} from "../../mocks/mockData";
+import {usePrototypeState} from "../../state/usePrototypeState";
 
 export function WarehouseMonitor() {
+  const {storeInventory} = usePrototypeState();
+  const [selectedBranchId, setSelectedBranchId] = useState(stores[0]?.id ?? "");
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+
+  const selectedBranch = stores.find(store => store.id === selectedBranchId) ?? stores[0];
+
+  const selectedBranchInventory = useMemo(
+    () =>
+      storeInventory
+        .filter(item => item.storeId === selectedBranch?.id)
+        .map(item => ({
+          ...item,
+          product: getProductById(item.productId),
+        }))
+        .filter(item => item.product),
+    [storeInventory, selectedBranch?.id],
+  );
+
+  useEffect(() => {
+    if (!isInventoryModalOpen) return;
+
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsInventoryModalOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [isInventoryModalOpen]);
+
   return (
     <section>
       <header className="section-head">
         <div>
-          <p className="eyebrow">Warehouse Workflow</p>
-          <h2>Store Stock Monitoring</h2>
+          <p className="eyebrow">Central Distribution Workflow</p>
+          <h2>Branch Stock Monitoring</h2>
           <p className="muted-copy">
-            Compare store health and identify where to route warehouse inventory first.
+            Compare branch stock health and identify where to route inventory first.
           </p>
         </div>
       </header>
 
       <article className="card">
         <div className="table-header">
-          <h3>Store Stock Heat List</h3>
+          <h3>Branch Stock Heat List</h3>
           <span className="status-badge warning">Auto-refresh mock</span>
         </div>
 
         <table>
           <thead>
             <tr>
-              <th>Store</th>
+              <th>Branch</th>
               <th>City</th>
-              <th>Low Stock SKUs</th>
+              <th>Low Stock Medication SKUs</th>
               <th>Urgency</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {stores.map(store => {
-              const shortageCount = getLowStockItems(store.id).length;
+              const shortageCount = storeInventory.filter(item => {
+                if (item.storeId !== store.id) return false;
+                const product = getProductById(item.productId);
+                return product ? item.onHand <= product.reorderThreshold : false;
+              }).length;
               const urgencyClass = shortageCount >= 2 ? "critical" : "healthy";
               const urgencyLabel = shortageCount >= 2 ? "Needs Restock" : "Stable";
 
@@ -42,12 +80,92 @@ export function WarehouseMonitor() {
                   <td>
                     <span className={`status-badge ${urgencyClass}`}>{urgencyLabel}</span>
                   </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={() => {
+                        setSelectedBranchId(store.id);
+                        setIsInventoryModalOpen(true);
+                      }}
+                    >
+                      View Inventory
+                    </button>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </article>
+
+      {isInventoryModalOpen ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => setIsInventoryModalOpen(false)}
+        >
+          <div
+            className="modal-content"
+            role="dialog"
+            aria-modal="true"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="table-header">
+              <h3>{selectedBranch?.name} Inventory Detail</h3>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setIsInventoryModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <p className="muted-copy">{selectedBranch?.city}</p>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Medication</th>
+                  <th>On Hand</th>
+                  <th>Threshold</th>
+                  <th>Weekly Outflow</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedBranchInventory.length ? (
+                  selectedBranchInventory.map(item => {
+                    const isLow = (item.product?.reorderThreshold ?? 0) >= item.onHand;
+
+                    return (
+                      <tr key={item.productId}>
+                        <td>{item.product?.sku}</td>
+                        <td>{item.product?.name}</td>
+                        <td>{item.onHand}</td>
+                        <td>{item.product?.reorderThreshold}</td>
+                        <td>{item.weeklyOutflow}</td>
+                        <td>
+                          <span
+                            className={`status-badge ${isLow ? "critical" : "healthy"}`}
+                          >
+                            {isLow ? "Low" : "OK"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={6}>No inventory rows found for this branch.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

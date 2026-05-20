@@ -3,6 +3,8 @@ import {AppShell} from "./components/AppShell";
 import {LandingPage} from "./routes/LandingPage";
 import {LoginPage} from "./routes/LoginPage";
 import {StoreDashboard} from "./routes/store/StoreDashboard";
+import {StoreCustomerOrders} from "./routes/store/StoreCustomerOrders";
+import {StoreRecentCustomerOrders} from "./routes/store/StoreRecentCustomerOrders";
 import {StoreInventory} from "./routes/store/StoreInventory";
 import {StoreReorder} from "./routes/store/StoreReorder";
 import {WarehouseDashboard} from "./routes/warehouse/WarehouseDashboard";
@@ -29,6 +31,8 @@ function App() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<StoreDashboard />} />
         <Route path="inventory" element={<StoreInventory />} />
+        <Route path="customer-orders" element={<StoreCustomerOrders />} />
+        <Route path="customer-orders/history" element={<StoreRecentCustomerOrders />} />
         <Route path="reorder" element={<StoreReorder />} />
       </Route>
 
