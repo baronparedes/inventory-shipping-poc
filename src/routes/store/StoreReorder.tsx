@@ -2,6 +2,11 @@ import {useMemo, useState} from "react";
 import {getProductById, getStoreById, stores} from "../../mocks/mockData";
 import {usePrototypeState} from "../../state/usePrototypeState";
 
+interface RefillFormItem {
+  include: boolean;
+  requestedQty: number;
+}
+
 export function StoreReorder() {
   const {storeInventory, createReorderRequest, selectedStoreId} = usePrototypeState();
   const activeStore = getStoreById(selectedStoreId) ?? stores[0];
@@ -20,10 +25,7 @@ export function StoreReorder() {
     [storeInventory, activeStore.id],
   );
 
-  const requestItems = lowStockRows.map(row => ({
-    productId: row.productId,
-    requestedQty: (row.product?.reorderThreshold ?? 0) * 2,
-  }));
+  const [formItems, setFormItems] = useState<Record<string, RefillFormItem>>({});
 
   return (
     <section>
@@ -56,17 +58,52 @@ export function StoreReorder() {
           <tbody>
             {lowStockRows.map(row => {
               const suggestedQty = (row.product?.reorderThreshold ?? 0) * 2;
+              const rowState = formItems[row.productId] ?? {
+                include: true,
+                requestedQty: Math.max(1, suggestedQty),
+              };
 
               return (
                 <tr key={row.productId}>
                   <td>
-                    <input type="checkbox" defaultChecked />
+                    <input
+                      type="checkbox"
+                      checked={rowState.include}
+                      onChange={event => {
+                        setFormItems(previous => ({
+                          ...previous,
+                          [row.productId]: {
+                            ...rowState,
+                            include: event.target.checked,
+                          },
+                        }));
+                      }}
+                    />
                   </td>
                   <td>{row.product?.name}</td>
                   <td>{row.onHand}</td>
                   <td>{row.product?.reorderThreshold}</td>
                   <td>
-                    <input type="number" defaultValue={suggestedQty} min={1} />
+                    <input
+                      type="number"
+                      value={rowState.requestedQty}
+                      min={1}
+                      onChange={event => {
+                        const parsedValue = Number(event.target.value);
+                        const nextQty =
+                          Number.isFinite(parsedValue) && parsedValue > 0
+                            ? Math.floor(parsedValue)
+                            : 1;
+
+                        setFormItems(previous => ({
+                          ...previous,
+                          [row.productId]: {
+                            ...rowState,
+                            requestedQty: nextQty,
+                          },
+                        }));
+                      }}
+                    />
                   </td>
                 </tr>
               );
@@ -81,6 +118,23 @@ export function StoreReorder() {
             type="button"
             className="primary-btn"
             onClick={() => {
+              const requestItems = lowStockRows
+                .map(row => {
+                  const rowState = formItems[row.productId];
+                  if (!rowState?.include) return null;
+
+                  return {
+                    productId: row.productId,
+                    requestedQty: Math.max(1, Math.floor(rowState.requestedQty)),
+                  };
+                })
+                .filter(item => item !== null);
+
+              if (requestItems.length === 0) {
+                setFeedback("Select at least one item and enter a valid quantity.");
+                return;
+              }
+
               const createdId = createReorderRequest({
                 storeId: activeStore.id,
                 priority: "High",
