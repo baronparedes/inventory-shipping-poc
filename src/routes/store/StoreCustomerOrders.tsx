@@ -205,7 +205,7 @@ export function StoreCustomerOrders() {
           <p className="muted-copy">Customer Name and Order / Rx Number are required.</p>
         ) : null}
 
-        <h4 ref={orderGridRef}>Editable Order Grid</h4>
+        <h4 ref={orderGridRef}>Order</h4>
         <table>
           <thead>
             <tr>
@@ -261,9 +261,9 @@ export function StoreCustomerOrders() {
         </table>
 
         <div className="preview-banner">
-          {`Preview: Dispense ${totalDraftUnits} total units (${draftOrderItems.length} items) to ${
-            customerName || "<Customer Name>"
-          } (${orderRef || "<Order Ref>"})`}
+          {`Order summary: ${totalDraftUnits} total units across ${draftOrderItems.length} items for ${
+            customerName || "the selected customer"
+          } (${orderRef || "order reference pending"})`}
         </div>
 
         {feedback && <div className="preview-banner">{feedback}</div>}
@@ -362,7 +362,7 @@ export function StoreCustomerOrders() {
             </tbody>
           </table>
 
-          <h4>Current Order Grid (Same State)</h4>
+          <h4>Order</h4>
           <table>
             <thead>
               <tr>

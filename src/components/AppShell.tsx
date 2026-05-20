@@ -1,4 +1,4 @@
-import {NavLink, Outlet, useLocation, useNavigate} from "react-router-dom";
+import {NavLink, Outlet, useNavigate} from "react-router-dom";
 import {getStoreById, stores} from "../mocks/mockData";
 import {usePrototypeState} from "../state/usePrototypeState";
 import type {Role} from "../types/domain";
@@ -34,7 +34,6 @@ const navLinks: Record<Role, Array<{path: string; label: string}>> = {
 
 export function AppShell({role}: AppShellProps) {
   const navigate = useNavigate();
-  const location = useLocation();
   const {setPreferredRole, selectedStoreId, setSelectedStoreId, resetPrototypeData} =
     usePrototypeState();
   const selectedStore = getStoreById(selectedStoreId) ?? stores[0];
@@ -42,7 +41,7 @@ export function AppShell({role}: AppShellProps) {
   return (
     <div className="app-shell">
       <aside className="side-panel">
-        <p className="eyebrow">Pharmacy Inventory + Dispatch Prototype</p>
+        <p className="eyebrow">Pharmacy Inventory + Dispatch</p>
         <h1>{roleTitles[role]}</h1>
         <p className="muted-copy">{roleDescriptions[role]}</p>
 
@@ -100,10 +99,12 @@ export function AppShell({role}: AppShellProps) {
             navigate(`/app/${role}/dashboard`);
           }}
         >
-          Reset Prototype Data
+          Reset Data
         </button>
 
-        <p className="route-hint">Active Route: {location.pathname}</p>
+        <button type="button" className="secondary-btn" onClick={() => navigate("/login")}>
+          Log Out
+        </button>
       </aside>
 
       <main className="content-panel">

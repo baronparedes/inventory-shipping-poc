@@ -61,7 +61,7 @@ export function WarehouseMonitor() {
       <article className="card">
         <div className="table-header">
           <h3>Branch Stock Heat List</h3>
-          <span className="status-badge warning">Auto-refresh mock</span>
+          <span className="status-badge warning">Live Status</span>
         </div>
 
         <table>

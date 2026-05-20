@@ -10,11 +10,11 @@ export function LoginPage() {
 
   return (
     <section className="login-wrap">
-      <p className="eyebrow">Route-Based Access</p>
-      <h1>Mock Login</h1>
+      <p className="eyebrow">Secure Access</p>
+      <h1>Sign In</h1>
       <p className="muted-copy">
-        Choose a role to enter the pharmacy prototype by route. You can still switch roles
-        inside the app using the role switch control.
+        Choose your role to continue. You can still switch roles inside the app using the
+        role switch control.
       </p>
 
       <div className="card login-card">

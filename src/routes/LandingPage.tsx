@@ -7,17 +7,16 @@ export function LandingPage() {
   return (
     <section className="landing-wrap">
       <div className="floating-shape"></div>
-      <p className="eyebrow">Prototype Start</p>
+      <p className="eyebrow">Welcome</p>
       <h1>Pharmacy Inventory and Dispatch Control Tower</h1>
       <p className="muted-copy landing-copy">
-        This prototype simulates how pharmacy branches track medication movement, request
-        replenishment, and how central distribution teams monitor all branches before
-        creating dispatch plans.
+        Manage how pharmacy branches track medication movement, request replenishment, and
+        how central distribution teams monitor all branches before creating dispatch plans.
       </p>
 
       <div className="landing-actions">
         <Link className="primary-btn" to="/login">
-          Enter Via Mock Login
+          Sign In
         </Link>
         <Link className="secondary-btn" to={`/app/${preferredRole}/dashboard`}>
           Continue as Last Role
