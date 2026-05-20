@@ -10,6 +10,12 @@ export function WarehouseDashboard() {
   const {reorderRequests, shippingOrders} = usePrototypeState();
   const [selectedRequest, setSelectedRequest] = useState<ReorderRequest | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const openShipmentsCount = shippingOrders.filter(
+    order => order.status !== "Delivered",
+  ).length;
+  const undispatchedRequestsCount = reorderRequests.filter(
+    request => !shippingOrders.some(order => order.requestId === request.id),
+  ).length;
 
   const selectedShippingOrder = selectedRequest
     ? shippingOrders.find(order => order.requestId === selectedRequest.id)
@@ -51,13 +57,11 @@ export function WarehouseDashboard() {
         </article>
         <article className="card kpi-card">
           <span className="kpi-label">Pending Refill Requests</span>
-          <p className="kpi-value">
-            {reorderRequests.filter(request => request.status === "Pending").length}
-          </p>
+          <p className="kpi-value">{undispatchedRequestsCount}</p>
         </article>
         <article className="card kpi-card">
           <span className="kpi-label">Open Shipments</span>
-          <p className="kpi-value">{shippingOrders.length}</p>
+          <p className="kpi-value">{openShipmentsCount}</p>
         </article>
       </div>
       <article className="card">
@@ -80,28 +84,30 @@ export function WarehouseDashboard() {
             </tr>
           </thead>
           <tbody>
-            {reorderRequests.map(request => (
-              <tr key={request.id}>
-                <td>{request.id}</td>
-                <td>{branchNameMap.get(request.storeId) || "Unknown Branch"}</td>
-                <td>{request.priority}</td>
-                <td>{request.createdAt}</td>
-                <td>
-                  {shippingOrders.find(order => order.requestId === request.id)?.id ||
-                    "Not Dispatched"}
-                </td>
-                <td>{shippingStatusMap.get(request.id) || "Not Dispatched"}</td>
-                <td>
-                  <button
-                    type="button"
-                    onClick={() => handleRowClick(request)}
-                    className="secondary-btn"
-                  >
-                    View
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {reorderRequests
+              .filter(request => shippingStatusMap.get(request.id) !== "Delivered")
+              .map(request => (
+                <tr key={request.id}>
+                  <td>{request.id}</td>
+                  <td>{branchNameMap.get(request.storeId) || "Unknown Branch"}</td>
+                  <td>{request.priority}</td>
+                  <td>{request.createdAt}</td>
+                  <td>
+                    {shippingOrders.find(order => order.requestId === request.id)?.id ||
+                      "Not Dispatched"}
+                  </td>
+                  <td>{shippingStatusMap.get(request.id) || "Not Dispatched"}</td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => handleRowClick(request)}
+                      className="secondary-btn"
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </article>

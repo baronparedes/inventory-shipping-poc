@@ -120,8 +120,12 @@ export function StoreReorder() {
             onClick={() => {
               const requestItems = lowStockRows
                 .map(row => {
-                  const rowState = formItems[row.productId];
-                  if (!rowState?.include) return null;
+                  const suggestedQty = (row.product?.reorderThreshold ?? 0) * 2;
+                  const rowState = formItems[row.productId] ?? {
+                    include: true,
+                    requestedQty: Math.max(1, suggestedQty),
+                  };
+                  if (!rowState.include) return null;
 
                   return {
                     productId: row.productId,
