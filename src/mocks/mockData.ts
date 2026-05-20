@@ -14,19 +14,19 @@ export const stores: Store[] = [
     id: "store-north",
     name: "NorthCare Pharmacy",
     city: "Manila",
-    manager: "T. Rivera",
+    manager: "M. Santos",
   },
   {
     id: "store-east",
     name: "EastCare Pharmacy",
     city: "Cebu City",
-    manager: "L. Brooks",
+    manager: "J. Garcia",
   },
   {
     id: "store-west",
     name: "WestCare Pharmacy",
     city: "Davao City",
-    manager: "C. Nguyen",
+    manager: "A. Reyes",
   },
 ];
 
