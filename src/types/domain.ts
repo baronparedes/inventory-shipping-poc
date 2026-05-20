@@ -20,7 +20,6 @@ export interface StoreInventoryItem {
   storeId: string;
   productId: string;
   onHand: number;
-  weeklyOutflow: number;
 }
 
 export interface InventoryTransaction {

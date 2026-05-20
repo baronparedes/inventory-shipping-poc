@@ -1,9 +1,10 @@
+import {useMemo} from "react";
 import {Link} from "react-router-dom";
 import {getProductById, getStoreById, stores} from "../../mocks/mockData";
 import {usePrototypeState} from "../../state/usePrototypeState";
 
 export function StoreDashboard() {
-  const {storeInventory, selectedStoreId} = usePrototypeState();
+  const {storeInventory, customerOrders, selectedStoreId} = usePrototypeState();
   const focusStore = getStoreById(selectedStoreId) ?? stores[0];
 
   const lowStockItems = storeInventory.filter(item => {
@@ -11,6 +12,17 @@ export function StoreDashboard() {
     const product = getProductById(item.productId);
     return product ? item.onHand <= product.reorderThreshold : false;
   });
+
+  const weeklyDispenseVolume = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 7);
+
+    return customerOrders
+      .filter(order => order.storeId === focusStore.id)
+      .filter(order => new Date(order.servedAt) >= cutoff)
+      .flatMap(order => order.items)
+      .reduce((acc, item) => acc + item.quantity, 0);
+  }, [customerOrders, focusStore.id]);
 
   return (
     <section>
@@ -36,7 +48,7 @@ export function StoreDashboard() {
         </article>
         <article className="card kpi-card">
           <span className="kpi-label">Weekly Dispense Volume</span>
-          <p className="kpi-value">62 units</p>
+          <p className="kpi-value">{weeklyDispenseVolume} units</p>
         </article>
       </div>
 

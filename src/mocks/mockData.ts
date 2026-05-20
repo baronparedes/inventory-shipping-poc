@@ -11,22 +11,94 @@ export const roles: Role[] = ["store", "warehouse"];
 
 export const stores: Store[] = [
   {
-    id: "store-north",
-    name: "NorthCare Pharmacy",
-    city: "Manila",
-    manager: "M. Santos",
+    id: "branch-bantayan",
+    name: "Bantayan District Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "R. Dela Cruz",
   },
   {
-    id: "store-east",
-    name: "EastCare Pharmacy",
-    city: "Cebu City",
-    manager: "J. Garcia",
+    id: "branch-daanbantayan",
+    name: "Daanbantayan District Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "M. Villanueva",
   },
   {
-    id: "store-west",
-    name: "WestCare Pharmacy",
-    city: "Davao City",
-    manager: "A. Reyes",
+    id: "branch-bogo",
+    name: "Bogo Cebu Provincial Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "J. Cabrera",
+  },
+  {
+    id: "branch-tuburan",
+    name: "Tuburan District Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "A. Lim",
+  },
+  {
+    id: "branch-balamban",
+    name: "Balamban Cebu Provincial Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "K. Mendoza",
+  },
+  {
+    id: "branch-sogod",
+    name: "Sogod Juan B. Dosado Memorial Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "L. Ramos",
+  },
+  {
+    id: "branch-pinamungajan",
+    name: "Pinamungajan Jose Ma. V. Borromeo Memorial Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "N. Flores",
+  },
+  {
+    id: "branch-san-francisco",
+    name: "San Francisco Ricardo L. Maningo Memorial Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "C. Bautista",
+  },
+  {
+    id: "branch-barili",
+    name: "Barili District Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "P. Navarro",
+  },
+  {
+    id: "branch-danao",
+    name: "Danao Cebu Provincial Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "S. Alonzo",
+  },
+  {
+    id: "branch-minglanilla",
+    name: "Minglanilla District Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "T. Espinosa",
+  },
+  {
+    id: "branch-carcar",
+    name: "Carcar Cebu Provincial Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "G. Salvador",
+  },
+  {
+    id: "branch-badian",
+    name: "Badian District Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "D. Pineda",
+  },
+  {
+    id: "branch-argao",
+    name: "Argao Isidro C. Kintanar Memorial Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "F. Soriano",
+  },
+  {
+    id: "branch-oslob",
+    name: "Oslob District Hospital Pharmacy Branch",
+    city: "Cebu",
+    manager: "H. Mercado",
   },
 ];
 
@@ -81,28 +153,45 @@ export const products: Product[] = [
   },
 ];
 
-export const storeInventory: StoreInventoryItem[] = [
-  {storeId: "store-north", productId: "prd-rice", onHand: 21, weeklyOutflow: 16},
-  {storeId: "store-north", productId: "prd-flour", onHand: 14, weeklyOutflow: 12},
-  {storeId: "store-north", productId: "prd-tomato", onHand: 19, weeklyOutflow: 14},
-  {storeId: "store-north", productId: "prd-salmon", onHand: 11, weeklyOutflow: 9},
-  {storeId: "store-north", productId: "prd-wrap", onHand: 43, weeklyOutflow: 11},
-  {storeId: "store-east", productId: "prd-rice", onHand: 48, weeklyOutflow: 15},
-  {storeId: "store-east", productId: "prd-flour", onHand: 22, weeklyOutflow: 10},
-  {storeId: "store-east", productId: "prd-tomato", onHand: 12, weeklyOutflow: 16},
-  {storeId: "store-east", productId: "prd-salmon", onHand: 18, weeklyOutflow: 8},
-  {storeId: "store-east", productId: "prd-label", onHand: 19, weeklyOutflow: 13},
-  {storeId: "store-west", productId: "prd-rice", onHand: 28, weeklyOutflow: 13},
-  {storeId: "store-west", productId: "prd-flour", onHand: 11, weeklyOutflow: 11},
-  {storeId: "store-west", productId: "prd-tomato", onHand: 16, weeklyOutflow: 15},
-  {storeId: "store-west", productId: "prd-wrap", onHand: 37, weeklyOutflow: 12},
-  {storeId: "store-west", productId: "prd-label", onHand: 26, weeklyOutflow: 14},
+const inventoryProfiles: Array<Array<Omit<StoreInventoryItem, "storeId">>> = [
+  [
+    {productId: "prd-rice", onHand: 21},
+    {productId: "prd-flour", onHand: 14},
+    {productId: "prd-tomato", onHand: 19},
+    {productId: "prd-salmon", onHand: 11},
+    {productId: "prd-wrap", onHand: 43},
+    {productId: "prd-label", onHand: 24},
+  ],
+  [
+    {productId: "prd-rice", onHand: 48},
+    {productId: "prd-flour", onHand: 22},
+    {productId: "prd-tomato", onHand: 12},
+    {productId: "prd-salmon", onHand: 18},
+    {productId: "prd-wrap", onHand: 39},
+    {productId: "prd-label", onHand: 19},
+  ],
+  [
+    {productId: "prd-rice", onHand: 28},
+    {productId: "prd-flour", onHand: 11},
+    {productId: "prd-tomato", onHand: 16},
+    {productId: "prd-salmon", onHand: 13},
+    {productId: "prd-wrap", onHand: 37},
+    {productId: "prd-label", onHand: 26},
+  ],
 ];
+
+export const storeInventory: StoreInventoryItem[] = stores.flatMap((store, index) => {
+  const profile = inventoryProfiles[index % inventoryProfiles.length];
+  return profile.map(item => ({
+    storeId: store.id,
+    ...item,
+  }));
+});
 
 export const reorderRequests: ReorderRequest[] = [
   {
     id: "req-1008",
-    storeId: "store-north",
+    storeId: "branch-bantayan",
     createdAt: "2026-05-18",
     priority: "High",
     status: "Pending",
@@ -114,7 +203,7 @@ export const reorderRequests: ReorderRequest[] = [
   },
   {
     id: "req-1010",
-    storeId: "store-east",
+    storeId: "branch-daanbantayan",
     createdAt: "2026-05-20",
     priority: "Medium",
     status: "Approved",
@@ -129,7 +218,7 @@ export const shippingOrders: ShippingOrder[] = [
   {
     id: "ship-770",
     requestId: "req-1008",
-    storeId: "store-north",
+    storeId: "branch-bantayan",
     shipDate: "2026-05-20",
     eta: "2026-05-21",
     status: "In Transit",
@@ -142,7 +231,7 @@ export const shippingOrders: ShippingOrder[] = [
   {
     id: "ship-771",
     requestId: "req-1010",
-    storeId: "store-east",
+    storeId: "branch-daanbantayan",
     shipDate: "2026-05-21",
     eta: "2026-05-22",
     status: "Packed",

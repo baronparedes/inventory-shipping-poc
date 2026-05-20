@@ -7,6 +7,7 @@ export function StoreInventory() {
   const {
     storeInventory,
     inventoryTransactions,
+    customerOrders,
     shippingOrders,
     receiveShipment,
     selectedStoreId,
@@ -51,6 +52,23 @@ export function StoreInventory() {
     [inventoryTransactions, defaultStore.id],
   );
 
+  const weeklyDispenseByProduct = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 7);
+
+    return customerOrders
+      .filter(order => order.storeId === defaultStore.id)
+      .filter(order => new Date(order.servedAt) >= cutoff)
+      .flatMap(order => order.items)
+      .reduce(
+        (acc, item) => {
+          acc[item.productId] = (acc[item.productId] ?? 0) + item.quantity;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+  }, [customerOrders, defaultStore.id]);
+
   return (
     <section>
       <header className="section-head">
@@ -80,7 +98,7 @@ export function StoreInventory() {
                 <td>{row.product?.sku}</td>
                 <td>{row.product?.name}</td>
                 <td>{row.onHand}</td>
-                <td>{row.weeklyOutflow}</td>
+                <td>{weeklyDispenseByProduct[row.productId] ?? 0}</td>
               </tr>
             ))}
           </tbody>

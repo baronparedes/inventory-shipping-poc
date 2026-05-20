@@ -3,7 +3,7 @@ import {getProductById, stores} from "../../mocks/mockData";
 import {usePrototypeState} from "../../state/usePrototypeState";
 
 export function WarehouseMonitor() {
-  const {storeInventory, inventoryTransactions} = usePrototypeState();
+  const {storeInventory, inventoryTransactions, customerOrders} = usePrototypeState();
   const [selectedBranchId, setSelectedBranchId] = useState(stores[0]?.id ?? "");
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
 
@@ -32,6 +32,27 @@ export function WarehouseMonitor() {
         .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
     [inventoryTransactions],
   );
+
+  const weeklyDispenseByStoreProduct = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 7);
+
+    return customerOrders
+      .filter(order => new Date(order.servedAt) >= cutoff)
+      .flatMap(order =>
+        order.items.map(item => ({
+          key: `${order.storeId}:${item.productId}`,
+          quantity: item.quantity,
+        })),
+      )
+      .reduce(
+        (acc, item) => {
+          acc[item.key] = (acc[item.key] ?? 0) + item.quantity;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+  }, [customerOrders]);
 
   useEffect(() => {
     if (!isInventoryModalOpen) return;
@@ -209,7 +230,11 @@ export function WarehouseMonitor() {
                         <td>{item.product?.name}</td>
                         <td>{item.onHand}</td>
                         <td>{item.product?.reorderThreshold}</td>
-                        <td>{item.weeklyOutflow}</td>
+                        <td>
+                          {weeklyDispenseByStoreProduct[
+                            `${selectedBranch?.id}:${item.productId}`
+                          ] ?? 0}
+                        </td>
                         <td>
                           <span
                             className={`status-badge ${isLow ? "critical" : "healthy"}`}
