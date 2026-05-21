@@ -24,6 +24,15 @@ export function StoreCustomerOrders() {
   const [orderRef, setOrderRef] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [modalFeedback, setModalFeedback] = useState("");
+  const [touched, setTouched] = useState({
+    customerName: false,
+    customerPhone: false,
+    orderRef: false,
+  });
+
+  const touch = (field: keyof typeof touched) =>
+    setTouched(prev => ({...prev, [field]: true}));
   const orderGridRef = useRef<HTMLHeadingElement | null>(null);
 
   const inventoryRows = useMemo(
@@ -65,9 +74,12 @@ export function StoreCustomerOrders() {
 
   const addItemToOrder = (productId: string, quantity: number) => {
     if (!Number.isFinite(quantity) || quantity < 1) {
-      setFeedback("Quantity must be at least 1.");
+      setModalFeedback("Quantity must be at least 1.");
       return;
     }
+
+    const invRow = inventoryByProductId.get(productId);
+    const product = getProductById(productId);
 
     setDraftOrderItems(previous => {
       const existing = previous.find(item => item.productId === productId);
@@ -82,6 +94,9 @@ export function StoreCustomerOrders() {
       );
     });
 
+    setModalFeedback(
+      `"${product?.name ?? productId}" added — ${Math.floor(quantity)} unit(s). On hand: ${invRow?.onHand ?? 0}.`,
+    );
     setFeedback("Medication added to customer order.");
   };
 
@@ -109,6 +124,7 @@ export function StoreCustomerOrders() {
   const closeModalAndShowGrid = () => {
     setIsAddItemModalOpen(false);
     setModalSearchQuery("");
+    setModalFeedback("");
     requestAnimationFrame(() => {
       orderGridRef.current?.scrollIntoView({behavior: "smooth", block: "start"});
     });
@@ -116,13 +132,13 @@ export function StoreCustomerOrders() {
 
   const addTopMatch = () => {
     if (!modalSearchQuery.trim()) {
-      setFeedback("Type a medication name or SKU to search first.");
+      setModalFeedback("Type a medication name or SKU to search first.");
       return;
     }
 
     const firstMatch = filteredInventoryRows[0];
     if (!firstMatch) {
-      setFeedback("No matching medication found.");
+      setModalFeedback("No matching medication found. Try a different name or SKU.");
       return;
     }
 
@@ -167,6 +183,7 @@ export function StoreCustomerOrders() {
     setCustomerNotes("");
     setOrderRef("");
     setDraftOrderItems([]);
+    setTouched({customerName: false, customerPhone: false, orderRef: false});
   };
 
   const totalDraftUnits = draftOrderItems.reduce((acc, item) => acc + item.quantity, 0);
@@ -211,6 +228,7 @@ export function StoreCustomerOrders() {
                 setCustomerEmail(selectedCustomer.email);
                 setCustomerAddress(selectedCustomer.address);
                 setCustomerNotes(selectedCustomer.notes);
+                setTouched({customerName: false, customerPhone: false, orderRef: false});
               }}
             >
               <option value="">New customer entry</option>
@@ -223,25 +241,45 @@ export function StoreCustomerOrders() {
           </label>
 
           <label>
-            Customer Name
+            <span>
+              Customer Name <span className="required-star">*</span>
+            </span>
             <input
               type="text"
               required
+              aria-required="true"
+              aria-invalid={touched.customerName && !customerName.trim()}
+              className={touched.customerName && !customerName.trim() ? "input-error" : ""}
               value={customerName}
               onChange={event => setCustomerName(event.target.value)}
+              onBlur={() => touch("customerName")}
               placeholder="e.g. Alicia Morgan"
             />
+            {touched.customerName && !customerName.trim() ? (
+              <span className="field-error-msg">Customer name is required.</span>
+            ) : null}
           </label>
 
           <label>
-            Mobile Number
+            <span>
+              Mobile Number <span className="required-star">*</span>
+            </span>
             <input
               type="text"
               required
+              aria-required="true"
+              aria-invalid={touched.customerPhone && !customerPhone.trim()}
+              className={
+                touched.customerPhone && !customerPhone.trim() ? "input-error" : ""
+              }
               value={customerPhone}
               onChange={event => setCustomerPhone(event.target.value)}
+              onBlur={() => touch("customerPhone")}
               placeholder="e.g. +63 917 555 0188"
             />
+            {touched.customerPhone && !customerPhone.trim() ? (
+              <span className="field-error-msg">Mobile number is required.</span>
+            ) : null}
           </label>
 
           <label>
@@ -275,14 +313,23 @@ export function StoreCustomerOrders() {
           </label>
 
           <label>
-            Order / Rx Number
+            <span>
+              Order / Rx Number <span className="required-star">*</span>
+            </span>
             <input
               type="text"
               required
+              aria-required="true"
+              aria-invalid={touched.orderRef && !orderRef.trim()}
+              className={touched.orderRef && !orderRef.trim() ? "input-error" : ""}
               value={orderRef}
               onChange={event => setOrderRef(event.target.value)}
+              onBlur={() => touch("orderRef")}
               placeholder="e.g. RX-44823"
             />
+            {touched.orderRef && !orderRef.trim() ? (
+              <span className="field-error-msg">Order / Rx Number is required.</span>
+            ) : null}
           </label>
         </div>
 
@@ -290,16 +337,22 @@ export function StoreCustomerOrders() {
           <button
             type="button"
             className="secondary-btn"
-            disabled={!hasRequiredHeaderFields}
-            onClick={() => setIsAddItemModalOpen(true)}
+            onClick={() => {
+              if (!hasRequiredHeaderFields) {
+                setTouched({customerName: true, customerPhone: true, orderRef: true});
+                return;
+              }
+              setIsAddItemModalOpen(true);
+            }}
           >
             Add Item
           </button>
         </div>
 
-        {!hasRequiredHeaderFields ? (
-          <p className="muted-copy">
-            Customer Name, Mobile Number, and Order / Rx Number are required.
+        {!hasRequiredHeaderFields && !Object.values(touched).some(Boolean) ? (
+          <p className="muted-copy" style={{fontSize: "0.82rem"}}>
+            Fill in <strong>Customer Name</strong>, <strong>Mobile Number</strong>, and{" "}
+            <strong>Order / Rx Number</strong> above to unlock item search.
           </p>
         ) : null}
 
@@ -388,7 +441,10 @@ export function StoreCustomerOrders() {
               <input
                 type="text"
                 value={modalSearchQuery}
-                onChange={event => setModalSearchQuery(event.target.value)}
+                onChange={event => {
+                  setModalSearchQuery(event.target.value);
+                  setModalFeedback("");
+                }}
                 onKeyDown={event => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -418,6 +474,12 @@ export function StoreCustomerOrders() {
               View Order Grid
             </button>
           </div>
+
+          {modalFeedback ? (
+            <div className="preview-banner" role="status">
+              {modalFeedback}
+            </div>
+          ) : null}
 
           <table>
             <thead>
@@ -450,10 +512,10 @@ export function StoreCustomerOrders() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={4}>
+                  <td colSpan={4} className="muted-copy">
                     {modalSearchQuery.trim()
-                      ? "No medications match your search query."
-                      : "Type to search medications. Results will appear here."}
+                      ? `No medications match "${modalSearchQuery}". Try a shorter word or the SKU code.`
+                      : "Start typing a medication name or SKU code above to search available stock."}
                   </td>
                 </tr>
               )}

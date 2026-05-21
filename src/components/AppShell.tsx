@@ -53,11 +53,14 @@ export function AppShell({role}: AppShellProps) {
   const {setPreferredRole, selectedStoreId, setSelectedStoreId, resetPrototypeData} =
     usePrototypeState();
   const selectedStore = getStoreById(selectedStoreId) ?? stores[0];
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [isTourMinimized, setIsTourMinimized] = useState(false);
   const [tourRole, setTourRole] = useState<Role | null>(null);
   const [tourStepIndex, setTourStepIndex] = useState(0);
   const activeTourRole = tourRole ?? role;
+
+  const closeSidebar = () => setIsSidebarOpen(false);
 
   const tourSteps = useMemo<TourStep[]>(() => {
     if (activeTourRole === "store") {
@@ -235,7 +238,11 @@ export function AppShell({role}: AppShellProps) {
 
   return (
     <div className="app-shell">
-      <aside className="side-panel">
+      {isSidebarOpen ? (
+        <div className="nav-overlay" aria-hidden="true" onClick={closeSidebar} />
+      ) : null}
+
+      <aside className={`side-panel${isSidebarOpen ? " open" : ""}`}>
         <p className="eyebrow">Pharmacy Inventory + Dispatch</p>
         <h1>{roleTitles[role]}</h1>
         <p className="muted-copy">{roleDescriptions[role]}</p>
@@ -281,6 +288,7 @@ export function AppShell({role}: AppShellProps) {
               to={item.path}
               end
               className={({isActive}) => (isActive ? "nav-item active" : "nav-item")}
+              onClick={closeSidebar}
             >
               {item.label}
             </NavLink>
@@ -307,6 +315,22 @@ export function AppShell({role}: AppShellProps) {
       </aside>
 
       <main className="content-panel">
+        <div className="mobile-topbar">
+          <button
+            type="button"
+            className="hamburger-btn"
+            aria-label="Open navigation"
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+          <p className="eyebrow" style={{margin: 0}}>
+            {roleTitles[role]}
+          </p>
+        </div>
+
         <Outlet />
       </main>
 
