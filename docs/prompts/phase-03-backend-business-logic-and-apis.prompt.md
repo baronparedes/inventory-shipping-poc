@@ -242,6 +242,239 @@ When `IN_TRANSIT → DELIVERED` (STORE receives shipment):
 
 ---
 
+## 7. Customers Module
+
+**File**: `src/modules/customers/`  
+**Access**: STORE only
+
+### Endpoints
+
+| Method | Path                 | Description                           |
+| ------ | -------------------- | ------------------------------------- |
+| `GET`  | `/api/customers`     | Search/list returning customers       |
+| `GET`  | `/api/customers/:id` | Get customer details                  |
+| `POST` | `/api/customers`     | Create new customer (from order form) |
+
+### `GET /api/customers` — Search Customers
+
+**Query parameters**:
+
+- `search`: optional string to search by name, email, or phone
+- `page`, `limit`: pagination
+
+**Business logic**:
+
+- STORE users can only search for customers within the context of their own branch (implicitly, no filtering needed per current spec)
+- Return customers with all details populated
+
+---
+
+## 8. Quality Checks Module
+
+**File**: `src/modules/quality-checks/`  
+**Access**: STORE only
+
+### Endpoints
+
+| Method | Path                  | Description                          |
+| ------ | --------------------- | ------------------------------------ |
+| `POST` | `/api/quality-checks` | Record quality checks for a shipment |
+
+### `POST /api/quality-checks` — Record Quality Checks
+
+**Request body**:
+
+```ts
+{
+  shipmentId: string;
+  checks: Array<{
+    productId: string;
+    quantity: number; // total received quantity
+    status: "PASS" | "FAILED"; // overall status for this product
+    reason?: string; // if FAILED: expired, damaged, etc.
+  }>;
+}
+```
+
+**Business logic**:
+
+1. Validate shipment exists and belongs to authenticated STORE user
+2. Validate shipment is in `IN_TRANSIT` status (quality check happens before delivery confirmation)
+3. For each check, create or update `QualityCheckRecord`
+4. Calculate accepted quantities based on checks (those with status PASS)
+5. If any items failed, trigger return shipment creation (see Returns Module)
+6. Return success with summary of accepted vs. rejected items
+
+---
+
+## 9. Returns Module
+
+**File**: `src/modules/returns/`  
+**Access**: STORE (create); WAREHOUSE (update status, view all); both roles can view their own
+
+### Endpoints
+
+| Method  | Path                      | Description                                  |
+| ------- | ------------------------- | -------------------------------------------- |
+| `GET`   | `/api/returns`            | List returns (WAREHOUSE sees all; STORE own) |
+| `GET`   | `/api/returns/:id`        | Get return shipment details                  |
+| `POST`  | `/api/returns`            | Create return shipment (auto from QC issues) |
+| `PATCH` | `/api/returns/:id/status` | WAREHOUSE only — update status               |
+
+### `POST /api/returns` — Create Return Shipment
+
+**Request body** (sent from quality-checks module or manual returns):
+
+```ts
+{
+  originatingShipmentId: string;
+  reason: string; // "Expired medications", "Damaged packaging", etc.
+  items: Array<{
+    productId: string;
+    quantity: number;
+    returnReason: string; // "Expired", "Damaged", etc.
+  }>;
+}
+```
+
+**Business logic**:
+
+1. Validate `originatingShipmentId` exists and is associated with the authenticated STORE
+2. Create `ReturnShipment` with status `DRAFT`
+3. Create `ReturnShipmentItem` records for each item
+4. Do NOT deduct inventory yet (inventory still belongs to store until receipt at DC)
+5. Return created return shipment
+
+### `PATCH /api/returns/:id/status` — Update Return Status
+
+**Request body**: `{ status: 'PACKED' | 'IN_TRANSIT' | 'RECEIVED' }`
+
+**Business logic**:
+
+Allowed transitions (WAREHOUSE only):
+
+- `DRAFT → PACKED`
+- `PACKED → IN_TRANSIT`
+- `IN_TRANSIT → RECEIVED`
+
+When `IN_TRANSIT → RECEIVED` (DC receives return):
+
+1. Load return items
+2. For each item, increment `DistributionCenterInventoryItem.onHand`
+3. Write `MovementLedgerEntry` records for each item:
+   - `movementType: RETURN`
+   - `reference: return.id`
+   - `reason: 'Received return shipment'`
+4. Set `ReturnShipment.status = RECEIVED`
+5. Update original shipment status to `RETURNED`
+6. All steps in a single Prisma transaction
+
+---
+
+## 10. Distribution Centers Module
+
+**File**: `src/modules/distribution-centers/`  
+**Access**: WAREHOUSE only for details; public for list (with limited info)
+
+### Endpoints
+
+| Method | Path                            | Description                          |
+| ------ | ------------------------------- | ------------------------------------ |
+| `GET`  | `/api/distribution-centers`     | List all distribution centers        |
+| `GET`  | `/api/distribution-centers/:id` | Get DC details and inventory summary |
+
+### Business Rules
+
+- WAREHOUSE users can access full details
+- STORE/STAKEHOLDER users can see list but not detailed inventory
+
+---
+
+## 11. Movement Ledgers Module
+
+**File**: `src/modules/movement-ledgers/`  
+**Access**: WAREHOUSE (all entries); STORE (own store entries only)
+
+### Endpoints
+
+| Method | Path                                                      | Description                            |
+| ------ | --------------------------------------------------------- | -------------------------------------- |
+| `GET`  | `/api/movement-ledgers`                                   | List movement entries (scoped by role) |
+| `GET`  | `/api/movement-ledgers?context=store&contextId=<storeId>` | Filter by store                        |
+| `GET`  | `/api/movement-ledgers?context=dc&contextId=<dcId>`       | Filter by DC                           |
+
+### Query Parameters
+
+- `context`: "store" or "dc" (required)
+- `contextId`: store or DC ID (required)
+- `movementType`: "IN" | "OUT" | "ADJUSTMENT" | "RETURN" (optional filter)
+- `productId`: filter by product (optional)
+- `dateFrom`, `dateTo`: filter by date range (optional)
+- `page`, `limit`: pagination
+
+**Business logic**:
+
+- Return `MovementLedgerEntry` records with product and context details
+- Sort by `occurredAt` descending
+- STORE users can only view entries for their own store(s)
+- WAREHOUSE users can view all entries
+
+---
+
+## 12. Dashboards Module (Stakeholder Reporting)
+
+**File**: `src/modules/dashboards/`  
+**Access**: STAKEHOLDER only
+
+### Endpoints
+
+| Method | Path                                 | Description                        |
+| ------ | ------------------------------------ | ---------------------------------- |
+| `GET`  | `/api/dashboards/executive-summary`  | Executive metrics and KPIs         |
+| `GET`  | `/api/dashboards/inventory-aging`    | Inventory aging report by product  |
+| `GET`  | `/api/dashboards/branch-performance` | Performance metrics per branch     |
+| `GET`  | `/api/dashboards/dc-performance`     | Performance metrics per DC         |
+| `GET`  | `/api/dashboards/product-movement`   | Product movement and demand trends |
+
+### Query Parameters (for all endpoints)
+
+- `dateFrom`, `dateTo`: report period (required or use sensible defaults like last 30 days)
+- `branchId`, `dcId`: optional filters for specific branches or DCs
+
+### Response Shapes (Stubs for now)
+
+Each endpoint returns a JSON object with relevant metrics. Examples:
+
+**Executive Summary**:
+
+```ts
+{
+  totalNetworkInventoryValue: number;
+  stockoutRate: number; // percentage
+  onTimeShipmentRate: number;
+  averageFulfillmentLeadTime: number; // days
+  topFastMovingProducts: Array<{productId; name; units}>;
+  topSlowMovingProducts: Array<{productId; name; units}>;
+  totalOrdersServed: number;
+  totalRefillsRequested: number;
+}
+```
+
+**Inventory Aging**:
+
+```ts
+{
+  byProduct: Array<{
+    productId: string;
+    name: string;
+    branches: Array<{ branchId, name, agingBuckets: { '0-30d': qty, '31-60d': qty, ...  } }>;
+    warehouse: { agingBuckets: { ... } };
+  }>;
+}
+```
+
+---
+
 ## Cross-Cutting Requirements
 
 ### Pagination
@@ -295,11 +528,17 @@ Register all modules in `src/index.ts`:
 app.use("/api/auth", authRouter);
 app.use("/api/products", authenticate, productsRouter);
 app.use("/api/stores", authenticate, storesRouter);
+app.use("/api/distribution-centers", authenticate, distributionCentersRouter);
 app.use("/api/inventory", authenticate, inventoryRouter);
 app.use("/api/transactions", authenticate, transactionsRouter);
 app.use("/api/orders", authenticate, ordersRouter);
+app.use("/api/customers", authenticate, customersRouter);
 app.use("/api/reorder-requests", authenticate, reorderRequestsRouter);
 app.use("/api/shipping", authenticate, shippingRouter);
+app.use("/api/quality-checks", authenticate, qualityChecksRouter);
+app.use("/api/returns", authenticate, returnsRouter);
+app.use("/api/movement-ledgers", authenticate, movementLedgersRouter);
+app.use("/api/dashboards", authenticate, dashboardsRouter);
 ```
 
 ## Acceptance Criteria

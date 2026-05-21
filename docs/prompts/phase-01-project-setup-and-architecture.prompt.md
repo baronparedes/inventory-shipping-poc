@@ -7,12 +7,13 @@ description: Phase 1 — Project Setup & Architecture for Inventory Shipping App
 
 ## Context
 
-You are building a production-grade **Pharmacy Inventory and Shipping** web application. The system serves two roles:
+You are building a production-grade **Pharmacy Inventory and Shipping** web application. The system serves three roles:
 
-- **Branch Pharmacy** — manages local inventory, creates customer orders, submits refill requests, receives inbound shipments.
-- **Distribution Center (Warehouse)** — monitors branch health, creates dispatches from refill requests, tracks network-wide movement.
+- **Branch Pharmacy (STORE)** — manages local inventory, creates customer orders, submits refill requests, receives inbound shipments, quality-checks inbound stock, handles returns.
+- **Distribution Center (WAREHOUSE)** — monitors branch health, manages DC inventory, creates dispatches from refill requests, tracks network-wide movement, processes returns.
+- **Stakeholder (STAKEHOLDER)** — views reporting dashboards, analytics, and performance metrics; no inventory or dispatch actions.
 
-The stack is **React (frontend) + Node.js (backend)**, deployed to the cloud as separate services.
+Users can have access to **multiple branches or distribution centers** and switch context during operations. The stack is **React (frontend) + Node.js (backend)**, deployed to the cloud as separate services.
 
 ## Goal
 
@@ -48,12 +49,14 @@ Scaffold the full project as a **pnpm monorepo** with the following workspace pa
 Create a shared library with:
 
 - All domain TypeScript types (migrate from `src/types/domain.ts`):
-  - `Role`, `Product`, `Store`, `StoreInventoryItem`, `InventoryTransaction`
-  - `CustomerOrder`, `CustomerOrderItem`
+  - `Role` (STORE, WAREHOUSE, STAKEHOLDER), `User`, `UserStoreAccess`, `UserDistributionCenterAccess`
+  - `Product`, `Store`, `DistributionCenter`, `StoreInventoryItem`, `DistributionCenterInventoryItem`
+  - `InventoryTransaction`, `MovementLedger`, `MovementLedgerEntry`, `AdjustmentReason`
+  - `Customer`, `CustomerOrder`, `CustomerOrderItem`
   - `ReorderRequest`, `ReorderRequestItem`
-  - `ShippingOrder`, `ShippingOrderItem`
-- Enums for status values: `ShippingStatus`, `ReorderStatus`, `MovementType`, `ProductCategory`, `Priority`
-- Shared validation constants (e.g. `REORDER_STATUSES`, `SHIPPING_STATUSES`)
+  - `ShippingOrder`, `ShippingOrderItem`, `QualityCheckRecord`, `ReturnShipment`, `ReturnShipmentItem`
+- Enums for status values: `ShippingStatus` (includes RETURNED), `ReorderStatus`, `MovementType` (IN/OUT/ADJUSTMENT/RETURN), `ProductCategory`, `Priority`, `QualityStatus` (PASS/FAILED), `ReturnReason`
+- Shared validation constants (e.g. `REORDER_STATUSES`, `SHIPPING_STATUSES`, `MOVEMENT_TYPES`)
 - Build output: ESM + CJS via `tsup`
 
 ### `apps/web` (Frontend)
@@ -90,10 +93,15 @@ Create a shared library with:
   │   ├── auth/
   │   ├── products/
   │   ├── stores/
+  │   ├── distribution-centers/
   │   ├── inventory/
   │   ├── orders/
   │   ├── reorder-requests/
-  │   └── shipping/
+  │   ├── shipping/
+  │   ├── quality-checks/
+  │   ├── movement-ledgers/
+  │   ├── customers/
+  │   └── dashboards/
   ├── types/            # Express augmentations, shared re-exports
   └── index.ts          # App entry point
   ```

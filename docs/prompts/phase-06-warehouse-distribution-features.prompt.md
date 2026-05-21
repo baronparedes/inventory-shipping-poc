@@ -85,7 +85,208 @@ Paginated with `Pagination` component. Default sort: descending `occurredAt`.
 
 ---
 
-## Feature: Dispatch Management (`/warehouse/shipping`)
+## Feature: Distribution Center Inventory Management (`/warehouse/inventory`)
+
+### Hooks
+
+- **`useDCInventory(dcId)`** — `GET /api/inventory?context=dc&contextId=<dcId>` — DC inventory with product details
+- **`useDCMovementLedger(dcId, filters)`** — `GET /api/movement-ledgers?context=dc&contextId=<dcId>` — all DC movements
+- **`useAdjustDCInventory()`** — `POST /api/inventory/adjustments` mutation (backend provides this)
+
+### UI
+
+**Tab 1: On-Hand Stock**
+
+Table with columns:
+
+- Product Name, SKU, Category, On-Hand Qty, Reserved (for pending dispatches), Available, Status badge
+
+Filter bar: search by product name or SKU, filter by category, status.
+
+**Tab 2: Inventory Adjustments**
+
+Form for recording stock adjustments (loss, damage, audit):
+
+- Product selector (autocomplete, searchable)
+- Adjustment Type: "Loss", "Damage", "Audit Correction" (dropdown)
+- Quantity (number input, positive integer)
+- Notes (text area, optional)
+- "Record Adjustment" button:
+  - Calls `useAdjustDCInventory()` mutation
+  - On success: show toast, refresh inventory, show entry in movement ledger
+
+**Tab 3: Movement Ledger**
+
+Table with columns:
+
+- Date/Time, Product Name, Movement Type badge (IN/OUT/ADJUSTMENT/RETURN), Qty, Reference, Reason/Note
+
+Filter bar:
+
+- Movement type (IN/OUT/ADJUSTMENT/RETURN/All)
+- Date range (from/to)
+- Product search
+
+Paginated. Default sort: descending `occurredAt`.
+
+---
+
+## Feature: Return Shipment Management (`/warehouse/returns`)
+
+### Hooks
+
+- **`useReturnShipments(filters)`** — `GET /api/returns?status=DRAFT,PACKED,IN_TRANSIT,RECEIVED` — all returns
+- **`useUpdateReturnStatus()`** — `PATCH /api/returns/:id/status` mutation
+
+### UI
+
+**Returns List**
+
+Table with columns:
+
+- Return ID (truncated), Store Name, Status badge, Item count, Reason, Date Created, Actions
+
+Filter bar: status filter (Draft, Packed, In Transit, Received, All).
+
+Actions per row (based on status):
+
+- `DRAFT` → "Mark Packed" button
+- `PACKED` → "Mark In Transit" button
+- `IN_TRANSIT` → "Mark Received" button
+- `RECEIVED` → no actions (read-only)
+
+Row click → opens **Return Shipment Detail Modal**:
+
+- Header: Return ID, Store, Reason, Status, Date Created
+- Items table: Product Name, Qty Returned, Return Reason (Expired, Damaged, etc.)
+- Footer: Status and any available action button (if not RECEIVED)
+
+**Workflow Example**:
+
+1. Branch initiates quality check on inbound shipment and finds damaged items
+2. Quality check module auto-creates return shipment with status DRAFT
+3. Warehouse user sees return in list, marks it PACKED
+4. Branch operator picks up return (status → IN_TRANSIT)
+5. Warehouse receives return, marks it RECEIVED
+6. Return items are added to DC inventory with RETURN movement ledger entries
+
+---
+
+## Feature: Network Movement Ledger (`/warehouse/ledger`)
+
+### Hooks
+
+- **`useNetworkMovementLedger(filters)`** — `GET /api/movement-ledgers?context=store` (all stores) OR `?context=dc` (all DCs)
+- **`useBranchMovementLedger(branchId)`** — `GET /api/movement-ledgers?context=store&contextId=<branchId>`
+- **`useLocationFilter()`** — returns list of all stores and DCs for filtering
+
+### UI
+
+**Network Ledger View**
+
+Filter bar:
+
+- Location selector: "All Locations", "Store: X", "DC: Y" (combines stores and DCs)
+- Movement type: IN, OUT, ADJUSTMENT, RETURN, All
+- Date range: from/to pickers
+- Product search (optional)
+
+Table with columns:
+
+- Date/Time, Location (Store or DC), Product Name, Movement Type badge, Qty, Reference (Shipment ID, Return ID, etc.), Reason/Note
+
+Paginated. Sortable by Date/Time, Location, Product, Qty. Default sort: descending Date/Time.
+
+Export-to-CSV button: downloads filtered data.
+
+---
+
+## Feature: Shipment Tracking Enhancement (`/warehouse/shipments`)
+
+### Hooks
+
+- **`useOutboundShipments(dcId, filters)`** — `GET /api/shipping?distributionCenterId=<dcId>` — shipments from selected DC
+- **`useShipmentTrackingDetails(shipmentId)`** — `GET /api/shipping/:id` — detailed tracking info including status history
+
+### UI
+
+**Outbound Shipments List**
+
+Table with columns:
+
+- Shipment ID, Destination Store, Status badge, Ship Date, ETA, Items count, Track button
+
+Filter bar: status, date range, destination store.
+
+"Track" button → navigates to Shipment Tracking Detail page.
+
+**Shipment Tracking Detail** (`/warehouse/shipments/:id`)
+
+- Header: Shipment ID, Destination Store, Status, Ship Date, ETA, Current Location (if available from 3PL)
+- **Status Timeline**: Visual timeline showing DRAFT → PACKED → IN_TRANSIT → DELIVERED
+  - Each status shows timestamp and who performed the action
+- **Items in Shipment**: Table with Product Name, Qty Shipped, Quality Check Status (if received)
+- **Tracking Notes**: Any notes from branch receiving team or 3PL
+
+---
+
+## Shared Warehouse Components
+
+### `LocationSelector`
+
+Dropdown combining all stores and DCs for filtering:
+
+```
+All Locations
+  ├── Stores
+  │   ├── Makati Branch
+  │   ├── BGC Branch
+  │   └── Ortigas Branch
+  └── Distribution Centers
+      └── Central Warehouse
+```
+
+When changed, updates parent filters.
+
+### `MovementTypeBadge`
+
+Renders: IN (green), OUT (red), ADJUSTMENT (blue), RETURN (orange).
+
+### `StatusTimeline`
+
+Visual component showing progression of statuses with timestamps:
+
+```
+✓ DRAFT (2024-05-21 09:00)
+  → ✓ PACKED (2024-05-21 10:30)
+    → ✓ IN_TRANSIT (2024-05-21 11:00)
+      → DELIVERED (pending)
+```
+
+---
+
+## Query Invalidation Map (Warehouse-specific)
+
+| Mutation                            | Invalidates                                |
+| ----------------------------------- | ------------------------------------------ |
+| `adjustDCInventory`                 | `['dc-inventory']`, `['movement-ledgers']` |
+| `updateReturnStatus`                | `['returns']`, `['movement-ledgers']`      |
+| `advanceShippingStatus (any stage)` | `['shipping']`, `['movement-ledgers']`     |
+
+---
+
+## Acceptance Criteria
+
+- [ ] DC Inventory tab shows current stock with reserved/available breakdown
+- [ ] Recording an inventory adjustment creates a movement ledger entry with reason
+- [ ] Return shipment list shows all returns with correct status
+- [ ] Advancing return status (Draft → Packed → In Transit → Received) works end-to-end
+- [ ] Network Movement Ledger displays entries from all stores and DCs with location labels
+- [ ] Filtering by location shows only entries for that location
+- [ ] Export-to-CSV downloads all filtered movement ledger data
+- [ ] Shipment tracking detail shows status timeline with timestamps
+- [ ] All views handle loading, error, and empty states
+- [ ] TypeScript compiles with zero errors across all new feature files
 
 ### Hooks
 

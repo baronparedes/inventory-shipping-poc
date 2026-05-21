@@ -67,17 +67,21 @@ interface AuthState {
   user: {
     userId: string;
     email: string;
-    role: "STORE" | "WAREHOUSE";
-    storeId?: string;
+    role: "STORE" | "WAREHOUSE" | "STAKEHOLDER";
+    selectedContextId?: string; // Currently selected store or DC ID
   } | null;
-  selectedStoreId: string | null; // for WAREHOUSE role switching context
-  login: (token: string, user: AuthState["user"]) => void;
+  availableContexts: Array<{id: string; name: string; type: "store" | "dc"}> | null; // Multi-context options
+  login: (
+    token: string,
+    user: AuthState["user"],
+    availableContexts?: AuthState["availableContexts"],
+  ) => void;
   logout: () => void;
-  setSelectedStoreId: (storeId: string) => void;
+  setSelectedContextId: (contextId: string) => void; // Switch context
 }
 ```
 
-**Persistence**: Use Zustand's `persist` middleware with `localStorage`. Store `token` and `user` — do **not** store sensitive data beyond what is needed.
+**Persistence**: Use Zustand's `persist` middleware with `localStorage`. Store `token`, `user`, `availableContexts`, and `selectedContextId` — do **not** store sensitive data beyond what is needed.
 
 ---
 
@@ -100,22 +104,30 @@ Use **React Router v7** with a layout-based route structure. Replace the current
 
 ```
 src/routes/
-├── index.tsx           # Root router definition
-├── ProtectedRoute.tsx  # Auth guard component
-├── RoleRoute.tsx       # Role-based guard component
-├── LoginPage.tsx       # Public login page
+├── index.tsx             # Root router definition
+├── ProtectedRoute.tsx    # Auth guard component
+├── RoleRoute.tsx         # Role-based guard component
+├── ContextSelector.tsx   # Multi-context selection page (shown when user has >1 context)
+├── LoginPage.tsx         # Public login page
 ├── store/
-│   ├── StoreLayout.tsx           # Store shell with nav
+│   ├── StoreLayout.tsx           # Store shell with nav + context switcher
 │   ├── StoreDashboard.tsx
 │   ├── StoreInventory.tsx
 │   ├── StoreCustomerOrders.tsx
 │   ├── StoreRecentCustomerOrders.tsx
 │   └── StoreReorder.tsx
-└── warehouse/
-    ├── WarehouseLayout.tsx       # Warehouse shell with nav
-    ├── WarehouseDashboard.tsx
-    ├── WarehouseMonitor.tsx
-    └── WarehouseShipping.tsx
+├── warehouse/
+│   ├── WarehouseLayout.tsx       # Warehouse shell with nav + context switcher
+│   ├── WarehouseDashboard.tsx
+│   ├── WarehouseMonitor.tsx
+│   └── WarehouseShipping.tsx
+└── stakeholder/
+    ├── StakeholderLayout.tsx     # Stakeholder shell with nav
+    ├── ExecutiveDashboard.tsx
+    ├── InventoryAgingReport.tsx
+    ├── BranchPerformance.tsx
+    ├── DCPerformance.tsx
+    └── ProductMovement.tsx
 ```
 
 ### Route Tree (`src/routes/index.tsx`)
@@ -123,6 +135,7 @@ src/routes/
 ```tsx
 <Routes>
   <Route path="/login" element={<LoginPage />} />
+  <Route path="/context-selector" element={<ContextSelector />} />
 
   {/* Protected: STORE role */}
   <Route element={<ProtectedRoute />}>
@@ -142,6 +155,17 @@ src/routes/
         <Route path="/warehouse" element={<WarehouseDashboard />} />
         <Route path="/warehouse/monitor" element={<WarehouseMonitor />} />
         <Route path="/warehouse/shipping" element={<WarehouseShipping />} />
+      </Route>
+    </Route>
+
+    {/* Protected: STAKEHOLDER role */}
+    <Route element={<RoleRoute allowedRoles={["STAKEHOLDER"]} />}>
+      <Route element={<StakeholderLayout />}>
+        <Route path="/dashboards" element={<ExecutiveDashboard />} />
+        <Route path="/dashboards/inventory-aging" element={<InventoryAgingReport />} />
+        <Route path="/dashboards/branch-performance" element={<BranchPerformance />} />
+        <Route path="/dashboards/dc-performance" element={<DCPerformance />} />
+        <Route path="/dashboards/product-movement" element={<ProductMovement />} />
       </Route>
     </Route>
   </Route>
@@ -172,11 +196,17 @@ Rebuild the login page to use the real API:
 
 - Form fields: `email` (text input) and `password` (password input)
 - Client-side validation: both fields required
-- Submit calls `useLogin` mutation
+- Submit calls `useLogin` mutation with `{ email, password }`
 - Show inline error message from API on failure
 - Show loading state on the submit button while mutation is pending
-- Remove the role-selector dropdown — role comes from the API response
-- On success, navigate to `/store` or `/warehouse` based on `user.role`
+- **Context Selection** (if user has multiple stores/DCs):
+  - After successful login, if `availableContexts.length > 1`, show a selector modal/page to choose a context
+  - Store the selected context ID in auth store
+  - If `availableContexts.length === 1`, auto-select that context
+- On final success, navigate to appropriate dashboard based on `user.role`:
+  - `STORE` → `/store`
+  - `WAREHOUSE` → `/warehouse`
+  - `STAKEHOLDER` → `/dashboards`
 
 ---
 
@@ -185,16 +215,35 @@ Rebuild the login page to use the real API:
 ### `StoreLayout.tsx`
 
 - Top navigation bar with links: Dashboard, Inventory, New Order, Order History, Reorder
-- Show current store name (fetch from `/api/stores/:storeId` using user's `storeId`)
+- **Store Selector** (if user has access to multiple stores): dropdown to switch context, calls `authStore.setSelectedContextId()`
+- Show current store name (derived from selected store ID)
 - Logout button: calls `authStore.logout()` and navigates to `/login`
 - `<Outlet />` for child routes
 
 ### `WarehouseLayout.tsx`
 
 - Top navigation bar with links: Dashboard, Monitor, Shipping
-- Store selector dropdown (for viewing branch-specific data): fetches `/api/stores` and sets `selectedStoreId` in auth store
+- **Distribution Center Selector** (if user has access to multiple DCs): dropdown to switch context, calls `authStore.setSelectedContextId()`
+- Show current DC name
 - Logout button
 - `<Outlet />` for child routes
+
+### `StakeholderLayout.tsx`
+
+- Top navigation bar with links: Executive Summary, Inventory Aging, Branch Performance, DC Performance, Product Movement
+- Show "Reports & Analytics" or similar header
+- Optional: date range filter (affects all dashboard queries)
+- Optional: branch/DC filters (affects all dashboard queries)
+- Logout button
+- `<Outlet />` for child routes
+
+### `ContextSelector.tsx`
+
+Shown when user has multiple stores or distribution centers:
+
+- Display list of available contexts (each with icon and name)
+- User selects one
+- On selection, store the context ID in auth store and navigate to appropriate dashboard
 
 ---
 

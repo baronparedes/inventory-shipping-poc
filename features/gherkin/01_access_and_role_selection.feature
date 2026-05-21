@@ -1,29 +1,40 @@
-Feature: Access and role selection
-  As an operations user
-  I want to enter the system with the right role and branch context
-  So that I can perform the correct business tasks
 
-  Scenario: Enter as a branch user
+Feature: Access and context selection
+  As an operations or stakeholder user
+  I want to access all branch and distribution center features I am permitted for, or view reporting and dashboards as a stakeholder
+  So that I can perform the correct business tasks or view analytics in the right location or center
+  Scenario: Enter as a stakeholder user
     Given I am on the sign in page
-    When I choose the branch role
-    And I continue to the workspace
-    Then I should see branch operations relevant to pharmacy stores
+    When I sign in as a user with the Stakeholder role
+    Then I should only see reporting and dashboard views
+    And I should not have access to inventory, dispatch, or order management features
 
-  Scenario: Enter as a distribution user
+
+  Scenario: Enter as a user with access to multiple branches
     Given I am on the sign in page
-    When I choose the distribution role
-    And I continue to the workspace
-    Then I should see distribution operations relevant to network fulfillment
+    When I sign in as a user with permission to access multiple branches
+    Then I should be prompted to select a branch from my available branches
+    When I select a branch
+    Then I should see branch operations relevant to the selected pharmacy store
 
-  Scenario: Change role during operations
+  Scenario: Enter as a user with access to multiple distribution centers
+    Given I am on the sign in page
+    When I sign in as a user with permission to access multiple distribution centers
+    Then I should be prompted to select a distribution center from my available centers
+    When I select a distribution center
+    Then I should see distribution operations relevant to the selected center
+
+  Scenario: Switch context during operations
     Given I am already working in the system
-    When I switch from one role to another
-    Then I should land in the matching workspace for that role
+    When I select a different branch or distribution center from those I am permitted to access
+    Then all views should update to show information for the newly selected context only
 
-  Scenario: Select a specific branch
-    Given I am working as a branch user
-    When I select a different branch location
-    Then all branch views should show information for the selected location only
+  Scenario: Access both branch and distribution features if permitted
+    Given I am signed in as a user with permission to access both branches and distribution centers
+    When I select a branch
+    Then I should see branch operations for that branch
+    When I select a distribution center
+    Then I should see distribution operations for that center
 
   Scenario: Log out from the workspace
     Given I am in any workspace page

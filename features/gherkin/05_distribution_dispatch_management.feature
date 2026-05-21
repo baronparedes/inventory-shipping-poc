@@ -1,7 +1,35 @@
-Feature: Distribution dispatch planning and execution
+
+Feature: Distribution dispatch planning, execution, and inventory management
   As a distribution planner
   I want to convert branch needs into managed dispatches
-  So that replenishment is timely and traceable
+  And manage the inventory of the distribution center
+  So that replenishment is timely, traceable, and the warehouse stock is always accurate
+  
+  Scenario: View and manage distribution center inventory
+    Given I am in the distribution workspace
+    When I open the inventory management view
+    Then I should see a list of all medications and supplies in the distribution center
+    And I should see current on-hand quantities, reserved for dispatch, and available stock
+
+  Scenario: Adjust distribution center inventory
+    Given I am in the distribution inventory management view
+    When I receive new stock from suppliers
+    Then I should be able to record an inbound inventory adjustment
+    And the on-hand quantity should increase accordingly
+
+    When I perform a stock adjustment for loss, damage, or audit
+    Then I should be able to record an adjustment with a reason
+    And the on-hand quantity should update accordingly
+
+  Scenario: Prevent over-dispatching from warehouse
+    Given I am creating a dispatch for a branch
+    When I select items and quantities to dispatch
+    Then I should not be able to dispatch more than the available stock in the distribution center
+
+  Scenario: Track inventory movement in the distribution center
+    Given inventory changes occur in the distribution center (inbound, outbound, adjustment)
+    When I review the inventory movement log
+    Then I should see all movements with type (IN, OUT, ADJUSTMENT), quantity, date, and reference
 
   Scenario: Review branch refill demand
     Given I am in the distribution workspace

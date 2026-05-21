@@ -72,12 +72,41 @@ Table with columns:
 
 - Shipment ID (truncated), Status badge, ETA date, Items count, Action
 
-Action: "View & Receive" button — opens a **modal**:
+Action: "View & Receive" button — opens a **Receive Shipment Modal** (see Quality Check Flow below).
 
-- Header: Shipment summary (ETA, status, item count)
-- Item list: Product name, SKU, Qty being received
-- Footer: "Confirm Receipt" primary button, "Cancel" button
-- On confirm: calls `useReceiveShipment` mutation, invalidates `['inventory', storeId]` and `['shipping']`, shows success toast
+### Quality Check Flow (Shipment Receiving)
+
+When user clicks "View & Receive" on an inbound shipment:
+
+1. **Shipment Summary Modal** opens with:
+   - Header: Shipment ID, ETA, current status
+   - Item list (initially all marked as "Pending Quality Check")
+
+2. **Quality Check Phase**:
+   - For each item in the shipment, user marks status as "PASS" or "FAILED"
+   - If "FAILED", user selects a reason: "Expired", "Damaged", "Other"
+   - Summary shows: X items passing, Y items failing
+   - User can edit checks before confirming
+
+3. **Submit Quality Checks**:
+   - User clicks "Confirm Quality Checks"
+   - Calls `useRecordQualityChecks()` — `POST /api/quality-checks` with all checks
+   - Backend processes checks and creates return shipment if any items failed
+   - On success: show toast with summary ("X items accepted, Y items marked for return")
+   - Modal closes
+
+4. **Complete Shipment Receipt**:
+   - After quality checks are submitted, modal shows "Accepted items will be added to inventory"
+   - User clicks "Complete Receipt"
+   - Calls `useReceiveShipment()` — `PATCH /api/shipping/:id/status` with `{ status: 'DELIVERED' }`
+   - On success: invalidate `['inventory', storeId]` and `['shipping']`
+   - Show success toast: "Shipment received and added to inventory"
+
+### Hooks
+
+- **`useRecordQualityChecks()`** — `POST /api/quality-checks` mutation
+- **`useReceiveShipment()`** — `PATCH /api/shipping/:id/status` mutation
+- **`useCreateReturnShipment()`** — `POST /api/returns` mutation (called automatically by quality-checks module)
 
 ---
 
@@ -85,42 +114,55 @@ Action: "View & Receive" button — opens a **modal**:
 
 ### Hooks
 
-- **`useProducts()`** — `GET /api/products` — for the product search/select
+- **`useProducts()`** — `GET /api/products` — for product search/select
+- **`useSearchCustomers(searchTerm)`** — `GET /api/customers?search=<term>` — for returning customer lookup
 - **`useCreateOrder()`** — `POST /api/orders` mutation
+- **`useCreateCustomer()`** — `POST /api/customers` mutation
 
 ### UI
 
-**Order Form**
-
-Two-panel layout:
+**Order Form** — Two-panel layout:
 
 **Left panel — Order Header**:
 
-- Customer Name (text input, required)
-- Order Reference (text input, required, auto-suggest a format like `ORD-YYYYMMDD-XXX`)
-- Summary: item count, total units
+- **Customer Search** (type-ahead):
+  - Search returning customers by name, email, or phone
+  - On selection, auto-populate all customer fields
+  - "New Customer" option to clear and start fresh
+- **Customer Name** (text input, required)
+- **Optional Customer Details** (collapsible section):
+  - Address (text input, optional)
+  - Mobile Number (text input, optional)
+  - Email (email input, optional)
+  - Philhealth Number (text input, optional)
+- **Order Reference** (text input, required)
+- **Summary**: item count, total units
 
 **Right panel — Order Items**:
 
-- Product search: type-ahead dropdown filtering products by name or SKU
+- Product search: type-ahead dropdown filtering by name or SKU
 - Selected product row: Product name, Qty stepper (increment/decrement, min 1), Remove button
-- "Add Product" button to add more rows
-- Empty state if no items added
+- "Add Product" button
+- Empty state if no items
 
 **Bottom bar**:
 
-- "Complete Order" primary button
+- "Complete Order" primary button:
   - Disabled if: `customerName` or `orderRef` is empty, or `items` is empty
-  - On click: calls `useCreateOrder`, invalidates `['orders']` and `['inventory', storeId]`
+  - On click:
+    - Calls `useCreateOrder` mutation with all order data (including optional customer fields)
+    - Invalidates `['orders']` and `['inventory', storeId]`
   - On success: show success toast, clear the form
-  - On error `INSUFFICIENT_STOCK`: show an inline error message identifying which product has insufficient stock
+  - On error `INSUFFICIENT_STOCK`: show inline error identifying the product
+  - On error: show general error message with retry
 
 **Validation rules (client-side)**:
 
-- `customerName`: required
-- `orderRef`: required
+- `customerName`: required, non-empty
+- `orderRef`: required, non-empty
 - At least 1 item
-- All item quantities must be positive integers
+- All item quantities: positive integers
+- Optional fields: if provided, validate format (email format, phone format)
 
 ---
 
@@ -149,20 +191,29 @@ Pagination controls: Previous / Next with current page indicator.
 
 ### Hooks
 
-- **`useLowStockItems(storeId)`** — `GET /api/inventory/:storeId/low-stock`
+- **`useLowStockItems(storeId)`** — `GET /api/inventory/:storeId/low-stock` — for tab 1 defaults
+- **`useAllProducts()`** — `GET /api/products` — for adding any medication
 - **`useCreateReorderRequest()`** — `POST /api/reorder-requests` mutation
 - **`useReorderHistory(storeId)`** — `GET /api/reorder-requests?storeId=<storeId>`
 
 ### UI
 
-**Tab 1: Create Reorder Request**
+**Tab 1: Create Refill Request**
 
 Form:
 
-- Priority selector: Low / Medium / High (required)
-- Items table: pre-populated from low-stock items — columns: Product Name, On-Hand, Threshold, Requested Qty (editable number input, pre-filled with `threshold - onHand`, minimum 1)
-- Toggle checkboxes to include/exclude individual items
-- "Submit Reorder Request" primary button
+- **Priority Selector**: Low / Medium / High (required)
+- **Request Builder**:
+  - Show low-stock items by default in a table with: Product Name, On-Hand, Threshold, Suggested Qty (threshold - onHand)
+  - User can edit Requested Qty for each item or toggle to include/exclude
+  - "Add Any Medication" button to add medications regardless of stock level:
+    - Opens a product selector (autocomplete, searchable)
+    - User specifies quantity
+    - Product added to the request table
+- **Request Table** shows all items to order with:
+  - Columns: Product Name, Qty Requested, Remove button
+  - Checkboxes to include/exclude items
+- "Submit Refill Request" primary button:
   - Disabled if no items selected or priority not chosen
   - On success: show toast, switch to Tab 2, invalidate `['reorder-requests']`
 
@@ -172,9 +223,9 @@ Table with columns:
 
 - Request ID (truncated), Priority badge, Status badge, Items count, Date
 
-Status badges: Draft (grey), Pending (blue), Approved (amber), Fulfilled (green).
+Status badges: Pending (blue), Approved (amber), Fulfilled (green).
 
-Row click → opens detail modal: priority, status, items list with product name and requested qty.
+Row click → opens detail modal showing: priority, status, items list with product name and requested qty.
 
 ---
 
