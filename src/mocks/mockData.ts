@@ -1,4 +1,5 @@
 import type {
+  CustomerProfile,
   CustomerOrder,
   InventoryTransaction,
   Product,
@@ -385,7 +386,12 @@ export const customerOrders: CustomerOrder[] = [
   {
     id: "ord-5002",
     storeId: "branch-bantayan",
+    customerId: "cst-101",
     customerName: "Maria Gonzales",
+    customerPhone: "+63 917 123 0011",
+    customerEmail: "maria.gonzales@example.com",
+    customerAddress: "Poblacion, Bantayan, Cebu",
+    customerNotes: "Asthmatic; prefers evening pickup.",
     orderRef: "RX-23119",
     servedAt: "2026-05-19T08:18:00.000Z",
     items: [
@@ -396,7 +402,12 @@ export const customerOrders: CustomerOrder[] = [
   {
     id: "ord-5003",
     storeId: "branch-daanbantayan",
+    customerId: "cst-102",
     customerName: "Danilo Perez",
+    customerPhone: "+63 917 123 0022",
+    customerEmail: "danilo.perez@example.com",
+    customerAddress: "Maya, Daanbantayan, Cebu",
+    customerNotes: "Follow-up refill every 30 days.",
     orderRef: "RX-23122",
     servedAt: "2026-05-20T10:45:00.000Z",
     items: [
@@ -407,7 +418,12 @@ export const customerOrders: CustomerOrder[] = [
   {
     id: "ord-5004",
     storeId: "branch-bogo",
+    customerId: "cst-103",
     customerName: "Elena Bautista",
+    customerPhone: "+63 917 123 0033",
+    customerEmail: "elena.bautista@example.com",
+    customerAddress: "Cogon, Bogo City, Cebu",
+    customerNotes: "Senior priority lane.",
     orderRef: "RX-23125",
     servedAt: "2026-05-20T13:10:00.000Z",
     items: [
@@ -418,13 +434,65 @@ export const customerOrders: CustomerOrder[] = [
   {
     id: "ord-5005",
     storeId: "branch-tuburan",
+    customerId: "cst-104",
     customerName: "Rico Navarro",
+    customerPhone: "+63 917 123 0044",
+    customerEmail: "rico.navarro@example.com",
+    customerAddress: "Tuburan Proper, Cebu",
+    customerNotes: "Cold-chain pickup within 30 minutes.",
     orderRef: "RX-23131",
     servedAt: "2026-05-21T01:20:00.000Z",
     items: [
       {productId: "prd-tomato", quantity: 10},
       {productId: "prd-salmon", quantity: 4},
     ],
+  },
+];
+
+export const customerProfiles: CustomerProfile[] = [
+  {
+    id: "cst-101",
+    fullName: "Maria Gonzales",
+    phone: "+63 917 123 0011",
+    email: "maria.gonzales@example.com",
+    address: "Poblacion, Bantayan, Cebu",
+    notes: "Asthmatic; prefers evening pickup.",
+    preferredStoreId: "branch-bantayan",
+    lastOrderRef: "RX-23119",
+    lastServedAt: "2026-05-19T08:18:00.000Z",
+  },
+  {
+    id: "cst-102",
+    fullName: "Danilo Perez",
+    phone: "+63 917 123 0022",
+    email: "danilo.perez@example.com",
+    address: "Maya, Daanbantayan, Cebu",
+    notes: "Follow-up refill every 30 days.",
+    preferredStoreId: "branch-daanbantayan",
+    lastOrderRef: "RX-23122",
+    lastServedAt: "2026-05-20T10:45:00.000Z",
+  },
+  {
+    id: "cst-103",
+    fullName: "Elena Bautista",
+    phone: "+63 917 123 0033",
+    email: "elena.bautista@example.com",
+    address: "Cogon, Bogo City, Cebu",
+    notes: "Senior priority lane.",
+    preferredStoreId: "branch-bogo",
+    lastOrderRef: "RX-23125",
+    lastServedAt: "2026-05-20T13:10:00.000Z",
+  },
+  {
+    id: "cst-104",
+    fullName: "Rico Navarro",
+    phone: "+63 917 123 0044",
+    email: "rico.navarro@example.com",
+    address: "Tuburan Proper, Cebu",
+    notes: "Cold-chain pickup within 30 minutes.",
+    preferredStoreId: "branch-tuburan",
+    lastOrderRef: "RX-23131",
+    lastServedAt: "2026-05-21T01:20:00.000Z",
   },
 ];
 

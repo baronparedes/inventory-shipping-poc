@@ -37,6 +37,9 @@ export function StoreRecentCustomerOrders() {
             <tr>
               <th>Order ID</th>
               <th>Customer</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Address</th>
               <th>Rx Ref</th>
               <th>Items</th>
               <th>Total Qty</th>
@@ -49,6 +52,9 @@ export function StoreRecentCustomerOrders() {
                 <tr key={order.id}>
                   <td>{order.id}</td>
                   <td>{order.customerName}</td>
+                  <td>{order.customerPhone || "-"}</td>
+                  <td>{order.customerEmail || "-"}</td>
+                  <td>{order.customerAddress || "-"}</td>
                   <td>{order.orderRef}</td>
                   <td>
                     {order.items
@@ -64,7 +70,7 @@ export function StoreRecentCustomerOrders() {
               ))
             ) : (
               <tr>
-                <td colSpan={6}>No customer orders served yet.</td>
+                <td colSpan={9}>No customer orders served yet.</td>
               </tr>
             )}
           </tbody>

@@ -42,10 +42,27 @@ export interface CustomerOrderItem {
   quantity: number;
 }
 
+export interface CustomerProfile {
+  id: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  address: string;
+  notes: string;
+  preferredStoreId: string;
+  lastOrderRef: string;
+  lastServedAt: string;
+}
+
 export interface CustomerOrder {
   id: string;
   storeId: string;
+  customerId: string;
   customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  customerAddress: string;
+  customerNotes: string;
   orderRef: string;
   items: CustomerOrderItem[];
   servedAt: string;

@@ -1,5 +1,6 @@
 import {createContext} from "react";
 import type {
+  CustomerProfile,
   CustomerOrder,
   InventoryTransaction,
   MovementType,
@@ -25,6 +26,7 @@ export interface PrototypeStateContextValue {
   storeInventory: StoreInventoryItem[];
   inventoryTransactions: InventoryTransaction[];
   customerOrders: CustomerOrder[];
+  customerProfiles: CustomerProfile[];
   reorderRequests: ReorderRequest[];
   shippingOrders: ShippingOrder[];
   preferredRole: Role;
@@ -44,7 +46,12 @@ export interface PrototypeStateContextValue {
   receiveShipment: (shipmentId: string) => string | null;
   serveCustomerOrder: (input: {
     storeId: string;
+    customerId?: string;
     customerName: string;
+    customerPhone: string;
+    customerEmail: string;
+    customerAddress: string;
+    customerNotes: string;
     orderRef: string;
     items: Array<{productId: string; quantity: number}>;
   }) => string | null;

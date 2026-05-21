@@ -9,14 +9,20 @@ interface DraftOrderItem {
 }
 
 export function StoreCustomerOrders() {
-  const {storeInventory, serveCustomerOrder, selectedStoreId} = usePrototypeState();
+  const {storeInventory, customerProfiles, serveCustomerOrder, selectedStoreId} =
+    usePrototypeState();
   const defaultStore = getStoreById(selectedStoreId) ?? stores[0];
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
   const [modalSearchQuery, setModalSearchQuery] = useState("");
   const [modalAddQty, setModalAddQty] = useState(5);
   const [draftOrderItems, setDraftOrderItems] = useState<DraftOrderItem[]>([]);
   const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [customerNotes, setCustomerNotes] = useState("");
   const [orderRef, setOrderRef] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [feedback, setFeedback] = useState("");
   const orderGridRef = useRef<HTMLHeadingElement | null>(null);
 
@@ -48,6 +54,14 @@ export function StoreCustomerOrders() {
       );
     });
   }, [inventoryRows, modalSearchQuery]);
+
+  const storeCustomers = useMemo(
+    () =>
+      customerProfiles
+        .filter(profile => profile.preferredStoreId === defaultStore.id)
+        .sort((a, b) => b.lastServedAt.localeCompare(a.lastServedAt)),
+    [customerProfiles, defaultStore.id],
+  );
 
   const addItemToOrder = (productId: string, quantity: number) => {
     if (!Number.isFinite(quantity) || quantity < 1) {
@@ -117,8 +131,8 @@ export function StoreCustomerOrders() {
   };
 
   const completeCustomerOrder = () => {
-    if (!customerName.trim() || !orderRef.trim()) {
-      setFeedback("Customer Name and Order/Rx Number are required.");
+    if (!customerName.trim() || !customerPhone.trim() || !orderRef.trim()) {
+      setFeedback("Customer Name, Phone, and Order/Rx Number are required.");
       return;
     }
 
@@ -129,7 +143,12 @@ export function StoreCustomerOrders() {
 
     const createdId = serveCustomerOrder({
       storeId: defaultStore.id,
+      customerId: selectedCustomerId || undefined,
       customerName,
+      customerPhone,
+      customerEmail,
+      customerAddress,
+      customerNotes,
       orderRef,
       items: draftOrderItems,
     });
@@ -140,14 +159,21 @@ export function StoreCustomerOrders() {
     }
 
     setFeedback(`Customer order ${createdId} saved and inventory updated.`);
+    setSelectedCustomerId("");
     setCustomerName("");
+    setCustomerPhone("");
+    setCustomerEmail("");
+    setCustomerAddress("");
+    setCustomerNotes("");
     setOrderRef("");
     setDraftOrderItems([]);
   };
 
   const totalDraftUnits = draftOrderItems.reduce((acc, item) => acc + item.quantity, 0);
   const hasRequiredHeaderFields =
-    customerName.trim().length > 0 && orderRef.trim().length > 0;
+    customerName.trim().length > 0 &&
+    customerPhone.trim().length > 0 &&
+    orderRef.trim().length > 0;
 
   return (
     <section>
@@ -168,6 +194,35 @@ export function StoreCustomerOrders() {
 
         <div className="form-grid">
           <label>
+            Returning Customer
+            <select
+              value={selectedCustomerId}
+              onChange={event => {
+                const nextId = event.target.value;
+                setSelectedCustomerId(nextId);
+
+                const selectedCustomer = storeCustomers.find(
+                  profile => profile.id === nextId,
+                );
+                if (!selectedCustomer) return;
+
+                setCustomerName(selectedCustomer.fullName);
+                setCustomerPhone(selectedCustomer.phone);
+                setCustomerEmail(selectedCustomer.email);
+                setCustomerAddress(selectedCustomer.address);
+                setCustomerNotes(selectedCustomer.notes);
+              }}
+            >
+              <option value="">New customer entry</option>
+              {storeCustomers.map(profile => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.fullName} ({profile.phone})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
             Customer Name
             <input
               type="text"
@@ -175,6 +230,47 @@ export function StoreCustomerOrders() {
               value={customerName}
               onChange={event => setCustomerName(event.target.value)}
               placeholder="e.g. Alicia Morgan"
+            />
+          </label>
+
+          <label>
+            Mobile Number
+            <input
+              type="text"
+              required
+              value={customerPhone}
+              onChange={event => setCustomerPhone(event.target.value)}
+              placeholder="e.g. +63 917 555 0188"
+            />
+          </label>
+
+          <label>
+            Email (optional)
+            <input
+              type="email"
+              value={customerEmail}
+              onChange={event => setCustomerEmail(event.target.value)}
+              placeholder="e.g. customer@example.com"
+            />
+          </label>
+
+          <label>
+            Address (optional)
+            <input
+              type="text"
+              value={customerAddress}
+              onChange={event => setCustomerAddress(event.target.value)}
+              placeholder="e.g. Brgy. Poblacion, Cebu"
+            />
+          </label>
+
+          <label>
+            Notes (optional)
+            <input
+              type="text"
+              value={customerNotes}
+              onChange={event => setCustomerNotes(event.target.value)}
+              placeholder="e.g. Pickup after 5 PM"
             />
           </label>
 
@@ -202,7 +298,9 @@ export function StoreCustomerOrders() {
         </div>
 
         {!hasRequiredHeaderFields ? (
-          <p className="muted-copy">Customer Name and Order / Rx Number are required.</p>
+          <p className="muted-copy">
+            Customer Name, Mobile Number, and Order / Rx Number are required.
+          </p>
         ) : null}
 
         <h4 ref={orderGridRef}>Order</h4>

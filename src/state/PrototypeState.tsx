@@ -1,5 +1,6 @@
 import {useEffect, useMemo, useState, type PropsWithChildren} from "react";
 import {
+  customerProfiles as initialCustomerProfiles,
   customerOrders as initialCustomerOrders,
   inventoryTransactions as initialInventoryTransactions,
   reorderRequests as initialReorderRequests,
@@ -8,6 +9,7 @@ import {
   storeInventory as initialStoreInventory,
 } from "../mocks/mockData";
 import type {
+  CustomerProfile,
   CustomerOrder,
   InventoryTransaction,
   ReorderRequest,
@@ -29,6 +31,7 @@ interface PrototypeStateData {
   storeInventory: StoreInventoryItem[];
   inventoryTransactions: InventoryTransaction[];
   customerOrders: CustomerOrder[];
+  customerProfiles: CustomerProfile[];
   reorderRequests: ReorderRequest[];
   shippingOrders: ShippingOrder[];
   preferredRole: Role;
@@ -43,6 +46,7 @@ function cloneInitialState(): PrototypeStateData {
       ...order,
       items: order.items.map(item => ({...item})),
     })),
+    customerProfiles: initialCustomerProfiles.map(profile => ({...profile})),
     reorderRequests: initialReorderRequests.map(request => ({
       ...request,
       items: request.items.map(item => ({...item})),
@@ -117,6 +121,58 @@ function normalizeInventoryTransactions(value: unknown): InventoryTransaction[] 
     .filter(Boolean) as InventoryTransaction[];
 }
 
+function normalizeCustomerProfiles(value: unknown): CustomerProfile[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map(profile => {
+      if (!profile || typeof profile !== "object") return null;
+
+      const typedProfile = profile as {
+        id?: unknown;
+        fullName?: unknown;
+        phone?: unknown;
+        email?: unknown;
+        address?: unknown;
+        notes?: unknown;
+        preferredStoreId?: unknown;
+        lastOrderRef?: unknown;
+        lastServedAt?: unknown;
+      };
+
+      const id = typeof typedProfile.id === "string" ? typedProfile.id : "";
+      const fullName =
+        typeof typedProfile.fullName === "string" ? typedProfile.fullName : "";
+      const phone = typeof typedProfile.phone === "string" ? typedProfile.phone : "";
+      const email = typeof typedProfile.email === "string" ? typedProfile.email : "";
+      const address = typeof typedProfile.address === "string" ? typedProfile.address : "";
+      const notes = typeof typedProfile.notes === "string" ? typedProfile.notes : "";
+      const preferredStoreId =
+        typeof typedProfile.preferredStoreId === "string"
+          ? typedProfile.preferredStoreId
+          : "";
+      const lastOrderRef =
+        typeof typedProfile.lastOrderRef === "string" ? typedProfile.lastOrderRef : "";
+      const lastServedAt =
+        typeof typedProfile.lastServedAt === "string" ? typedProfile.lastServedAt : "";
+
+      if (!id || !fullName || !phone || !preferredStoreId) return null;
+
+      return {
+        id,
+        fullName,
+        phone,
+        email,
+        address,
+        notes,
+        preferredStoreId,
+        lastOrderRef,
+        lastServedAt,
+      };
+    })
+    .filter(Boolean) as CustomerProfile[];
+}
+
 function isValidRole(value: unknown): value is Role {
   return value === "store" || value === "warehouse" || value === "stakeholder";
 }
@@ -135,7 +191,12 @@ function normalizeCustomerOrders(value: unknown): CustomerOrder[] {
       const typedOrder = order as {
         id?: unknown;
         storeId?: unknown;
+        customerId?: unknown;
         customerName?: unknown;
+        customerPhone?: unknown;
+        customerEmail?: unknown;
+        customerAddress?: unknown;
+        customerNotes?: unknown;
         orderRef?: unknown;
         servedAt?: unknown;
         items?: unknown;
@@ -145,8 +206,18 @@ function normalizeCustomerOrders(value: unknown): CustomerOrder[] {
 
       const id = typeof typedOrder.id === "string" ? typedOrder.id : "";
       const storeId = typeof typedOrder.storeId === "string" ? typedOrder.storeId : "";
+      const customerId =
+        typeof typedOrder.customerId === "string" ? typedOrder.customerId : "";
       const customerName =
         typeof typedOrder.customerName === "string" ? typedOrder.customerName : "";
+      const customerPhone =
+        typeof typedOrder.customerPhone === "string" ? typedOrder.customerPhone : "";
+      const customerEmail =
+        typeof typedOrder.customerEmail === "string" ? typedOrder.customerEmail : "";
+      const customerAddress =
+        typeof typedOrder.customerAddress === "string" ? typedOrder.customerAddress : "";
+      const customerNotes =
+        typeof typedOrder.customerNotes === "string" ? typedOrder.customerNotes : "";
       const orderRef = typeof typedOrder.orderRef === "string" ? typedOrder.orderRef : "";
       const servedAt = typeof typedOrder.servedAt === "string" ? typedOrder.servedAt : "";
 
@@ -184,7 +255,12 @@ function normalizeCustomerOrders(value: unknown): CustomerOrder[] {
       return {
         id,
         storeId,
+        customerId,
         customerName,
+        customerPhone,
+        customerEmail,
+        customerAddress,
+        customerNotes,
         orderRef,
         servedAt,
         items,
@@ -393,6 +469,9 @@ function loadState(): PrototypeStateData {
         : fallback.storeInventory,
       inventoryTransactions: normalizeInventoryTransactions(parsed.inventoryTransactions),
       customerOrders: normalizeCustomerOrders(parsed.customerOrders),
+      customerProfiles: Array.isArray(parsed.customerProfiles)
+        ? normalizeCustomerProfiles(parsed.customerProfiles)
+        : fallback.customerProfiles,
       reorderRequests: normalizedReorderRequests,
       shippingOrders: Array.isArray(parsed.shippingOrders)
         ? normalizeShippingOrders(parsed.shippingOrders, normalizedReorderRequests)
@@ -438,6 +517,15 @@ function buildCustomerOrderId(existing: CustomerOrder[]): string {
     .reduce((acc, value) => Math.max(acc, value), 5000);
 
   return `ord-${max + 1}`;
+}
+
+function buildCustomerProfileId(existing: CustomerProfile[]): string {
+  const max = existing
+    .map(profile => Number(profile.id.replace("cst-", "")))
+    .filter(Number.isFinite)
+    .reduce((acc, value) => Math.max(acc, value), 100);
+
+  return `cst-${max + 1}`;
 }
 
 function buildInventoryTransactionId(existing: InventoryTransaction[]): string {
@@ -749,7 +837,12 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
           const nextOrder: CustomerOrder = {
             id: nextId,
             storeId: input.storeId,
+            customerId: input.customerId ?? "",
             customerName: input.customerName.trim(),
+            customerPhone: input.customerPhone.trim(),
+            customerEmail: input.customerEmail.trim(),
+            customerAddress: input.customerAddress.trim(),
+            customerNotes: input.customerNotes.trim(),
             orderRef: input.orderRef.trim(),
             items: Object.entries(groupedItems).map(([productId, quantity]) => ({
               productId,
@@ -784,6 +877,49 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
                   }
                 : item,
             ),
+            customerProfiles: (() => {
+              const normalizedName = nextOrder.customerName.toLowerCase();
+              const normalizedPhone = nextOrder.customerPhone;
+              const existingCustomer = previous.customerProfiles.find(profile => {
+                return (
+                  profile.preferredStoreId === input.storeId &&
+                  profile.fullName.toLowerCase() === normalizedName &&
+                  profile.phone === normalizedPhone
+                );
+              });
+
+              if (existingCustomer) {
+                return previous.customerProfiles.map(profile =>
+                  profile.id === existingCustomer.id
+                    ? {
+                        ...profile,
+                        fullName: nextOrder.customerName,
+                        email: nextOrder.customerEmail,
+                        address: nextOrder.customerAddress,
+                        notes: nextOrder.customerNotes,
+                        preferredStoreId: input.storeId,
+                        lastOrderRef: nextOrder.orderRef,
+                        lastServedAt: nextOrder.servedAt,
+                      }
+                    : profile,
+                );
+              }
+
+              return [
+                {
+                  id: buildCustomerProfileId(previous.customerProfiles),
+                  fullName: nextOrder.customerName,
+                  phone: nextOrder.customerPhone,
+                  email: nextOrder.customerEmail,
+                  address: nextOrder.customerAddress,
+                  notes: nextOrder.customerNotes,
+                  preferredStoreId: input.storeId,
+                  lastOrderRef: nextOrder.orderRef,
+                  lastServedAt: nextOrder.servedAt,
+                },
+                ...previous.customerProfiles,
+              ];
+            })(),
             customerOrders: [nextOrder, ...previous.customerOrders],
             inventoryTransactions: [...transactions, ...previous.inventoryTransactions],
           };
