@@ -1,4 +1,6 @@
 import type {
+  CustomerOrder,
+  InventoryTransaction,
   Product,
   ReorderRequest,
   Role,
@@ -7,7 +9,7 @@ import type {
   StoreInventoryItem,
 } from "../types/domain";
 
-export const roles: Role[] = ["store", "warehouse"];
+export const roles: Role[] = ["store", "warehouse", "stakeholder"];
 
 export const stores: Store[] = [
   {
@@ -190,6 +192,28 @@ export const storeInventory: StoreInventoryItem[] = stores.flatMap((store, index
 
 export const reorderRequests: ReorderRequest[] = [
   {
+    id: "req-1004",
+    storeId: "branch-bogo",
+    createdAt: "2026-05-15",
+    priority: "Medium",
+    status: "Fulfilled",
+    items: [
+      {productId: "prd-wrap", requestedQty: 80},
+      {productId: "prd-label", requestedQty: 42},
+    ],
+  },
+  {
+    id: "req-1006",
+    storeId: "branch-tuburan",
+    createdAt: "2026-05-17",
+    priority: "High",
+    status: "Approved",
+    items: [
+      {productId: "prd-rice", requestedQty: 30},
+      {productId: "prd-tomato", requestedQty: 40},
+    ],
+  },
+  {
     id: "req-1008",
     storeId: "branch-bantayan",
     createdAt: "2026-05-18",
@@ -212,20 +236,95 @@ export const reorderRequests: ReorderRequest[] = [
       {productId: "prd-label", requestedQty: 22},
     ],
   },
+  {
+    id: "req-1012",
+    storeId: "branch-oslob",
+    createdAt: "2026-05-21",
+    priority: "High",
+    status: "Pending",
+    items: [
+      {productId: "prd-flour", requestedQty: 26},
+      {productId: "prd-salmon", requestedQty: 18},
+    ],
+  },
 ];
 
 export const shippingOrders: ShippingOrder[] = [
+  {
+    id: "ship-768",
+    requestId: "req-1004",
+    storeId: "branch-bogo",
+    shipDate: "2026-05-16",
+    eta: "2026-05-18",
+    status: "Delivered",
+    items: [
+      {productId: "prd-wrap", quantity: 80},
+      {productId: "prd-label", quantity: 42},
+    ],
+    carrier: "Cebu Health Logistics",
+    trackingCode: "CEB-TRK-768",
+    currentLocation: "Bogo Cebu Provincial Hospital",
+    statusHistory: [
+      {
+        status: "Draft",
+        occurredAt: "2026-05-16T08:00:00.000Z",
+        location: "Cebu Distribution Center",
+        note: "Dispatch created from refill request",
+      },
+      {
+        status: "Packed",
+        occurredAt: "2026-05-16T10:15:00.000Z",
+        location: "Cebu Distribution Center",
+        note: "Shipment packed and staged",
+      },
+      {
+        status: "In Transit",
+        occurredAt: "2026-05-17T01:05:00.000Z",
+        location: "North Cebu Transit Route",
+        note: "Outbound van departed",
+      },
+      {
+        status: "Delivered",
+        occurredAt: "2026-05-18T03:25:00.000Z",
+        location: "Bogo Cebu Provincial Hospital",
+        note: "Received by branch team",
+      },
+    ],
+  },
   {
     id: "ship-770",
     requestId: "req-1008",
     storeId: "branch-bantayan",
     shipDate: "2026-05-20",
-    eta: "2026-05-21",
+    eta: "2026-05-22",
     status: "In Transit",
     items: [
       {productId: "prd-rice", quantity: 40},
       {productId: "prd-flour", quantity: 32},
       {productId: "prd-salmon", quantity: 24},
+    ],
+    carrier: "Cebu Health Logistics",
+    trackingCode: "CEB-TRK-770",
+    currentLocation: "Santa Fe Ferry Crossing",
+    statusHistory: [
+      {
+        status: "Draft",
+        occurredAt: "2026-05-20T04:20:00.000Z",
+        location: "Cebu Distribution Center",
+        note: "Dispatch drafted",
+      },
+      {
+        status: "Packed",
+        occurredAt: "2026-05-20T07:40:00.000Z",
+        location: "Cebu Distribution Center",
+        note: "Packed and quality checked",
+      },
+      {
+        status: "In Transit",
+        occurredAt: "2026-05-21T02:00:00.000Z",
+        location: "Santa Fe Ferry Crossing",
+        note: "Shipment departed distribution center",
+      },
     ],
   },
   {
@@ -233,12 +332,182 @@ export const shippingOrders: ShippingOrder[] = [
     requestId: "req-1010",
     storeId: "branch-daanbantayan",
     shipDate: "2026-05-21",
-    eta: "2026-05-22",
+    eta: "2026-05-23",
     status: "Packed",
     items: [
       {productId: "prd-tomato", quantity: 36},
       {productId: "prd-label", quantity: 22},
     ],
+    carrier: "Cebu Health Logistics",
+    trackingCode: "CEB-TRK-771",
+    currentLocation: "Cebu Distribution Center",
+    statusHistory: [
+      {
+        status: "Draft",
+        occurredAt: "2026-05-21T01:00:00.000Z",
+        location: "Cebu Distribution Center",
+        note: "Dispatch prepared",
+      },
+      {
+        status: "Packed",
+        occurredAt: "2026-05-21T06:10:00.000Z",
+        location: "Cebu Distribution Center",
+        note: "Awaiting truck departure",
+      },
+    ],
+  },
+  {
+    id: "ship-772",
+    requestId: "req-1006",
+    storeId: "branch-tuburan",
+    shipDate: "2026-05-21",
+    eta: "2026-05-24",
+    status: "Draft",
+    items: [
+      {productId: "prd-rice", quantity: 30},
+      {productId: "prd-tomato", quantity: 40},
+    ],
+    carrier: "Cebu Health Logistics",
+    trackingCode: "CEB-TRK-772",
+    currentLocation: "Cebu Distribution Center",
+    statusHistory: [
+      {
+        status: "Draft",
+        occurredAt: "2026-05-21T09:40:00.000Z",
+        location: "Cebu Distribution Center",
+        note: "Draft awaiting pack approval",
+      },
+    ],
+  },
+];
+
+export const customerOrders: CustomerOrder[] = [
+  {
+    id: "ord-5002",
+    storeId: "branch-bantayan",
+    customerName: "Maria Gonzales",
+    orderRef: "RX-23119",
+    servedAt: "2026-05-19T08:18:00.000Z",
+    items: [
+      {productId: "prd-rice", quantity: 12},
+      {productId: "prd-flour", quantity: 8},
+    ],
+  },
+  {
+    id: "ord-5003",
+    storeId: "branch-daanbantayan",
+    customerName: "Danilo Perez",
+    orderRef: "RX-23122",
+    servedAt: "2026-05-20T10:45:00.000Z",
+    items: [
+      {productId: "prd-tomato", quantity: 11},
+      {productId: "prd-label", quantity: 6},
+    ],
+  },
+  {
+    id: "ord-5004",
+    storeId: "branch-bogo",
+    customerName: "Elena Bautista",
+    orderRef: "RX-23125",
+    servedAt: "2026-05-20T13:10:00.000Z",
+    items: [
+      {productId: "prd-rice", quantity: 9},
+      {productId: "prd-wrap", quantity: 18},
+    ],
+  },
+  {
+    id: "ord-5005",
+    storeId: "branch-tuburan",
+    customerName: "Rico Navarro",
+    orderRef: "RX-23131",
+    servedAt: "2026-05-21T01:20:00.000Z",
+    items: [
+      {productId: "prd-tomato", quantity: 10},
+      {productId: "prd-salmon", quantity: 4},
+    ],
+  },
+];
+
+export const inventoryTransactions: InventoryTransaction[] = [
+  {
+    id: "txn-1",
+    storeId: "branch-bogo",
+    productId: "prd-wrap",
+    movementType: "IN",
+    quantity: 80,
+    occurredAt: "2026-05-18T03:25:00.000Z",
+    reference: "ship-768",
+    note: "Shipment received",
+  },
+  {
+    id: "txn-2",
+    storeId: "branch-bogo",
+    productId: "prd-label",
+    movementType: "IN",
+    quantity: 42,
+    occurredAt: "2026-05-18T03:25:00.000Z",
+    reference: "ship-768",
+    note: "Shipment received",
+  },
+  {
+    id: "txn-3",
+    storeId: "branch-bantayan",
+    productId: "prd-rice",
+    movementType: "OUT",
+    quantity: 12,
+    occurredAt: "2026-05-19T08:18:00.000Z",
+    reference: "ord-5002",
+    note: "Customer order RX-23119",
+  },
+  {
+    id: "txn-4",
+    storeId: "branch-bantayan",
+    productId: "prd-flour",
+    movementType: "OUT",
+    quantity: 8,
+    occurredAt: "2026-05-19T08:18:00.000Z",
+    reference: "ord-5002",
+    note: "Customer order RX-23119",
+  },
+  {
+    id: "txn-5",
+    storeId: "branch-daanbantayan",
+    productId: "prd-tomato",
+    movementType: "OUT",
+    quantity: 11,
+    occurredAt: "2026-05-20T10:45:00.000Z",
+    reference: "ord-5003",
+    note: "Customer order RX-23122",
+  },
+  {
+    id: "txn-6",
+    storeId: "branch-daanbantayan",
+    productId: "prd-label",
+    movementType: "OUT",
+    quantity: 6,
+    occurredAt: "2026-05-20T10:45:00.000Z",
+    reference: "ord-5003",
+    note: "Customer order RX-23122",
+  },
+  {
+    id: "txn-7",
+    storeId: "branch-bogo",
+    productId: "prd-wrap",
+    movementType: "OUT",
+    quantity: 18,
+    occurredAt: "2026-05-20T13:10:00.000Z",
+    reference: "ord-5004",
+    note: "Customer order RX-23125",
+  },
+  {
+    id: "txn-8",
+    storeId: "branch-tuburan",
+    productId: "prd-salmon",
+    movementType: "OUT",
+    quantity: 4,
+    occurredAt: "2026-05-21T01:20:00.000Z",
+    reference: "ord-5005",
+    note: "Customer order RX-23131",
   },
 ];
 

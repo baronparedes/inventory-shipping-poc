@@ -1,5 +1,7 @@
 import {useEffect, useMemo, useState, type PropsWithChildren} from "react";
 import {
+  customerOrders as initialCustomerOrders,
+  inventoryTransactions as initialInventoryTransactions,
   reorderRequests as initialReorderRequests,
   shippingOrders as initialShippingOrders,
   stores,
@@ -10,6 +12,8 @@ import type {
   InventoryTransaction,
   ReorderRequest,
   Role,
+  ShippingStatus,
+  ShippingStatusEvent,
   ShippingOrder,
   ShippingOrderItem,
   StoreInventoryItem,
@@ -34,8 +38,11 @@ interface PrototypeStateData {
 function cloneInitialState(): PrototypeStateData {
   return {
     storeInventory: initialStoreInventory.map(item => ({...item})),
-    inventoryTransactions: [],
-    customerOrders: [],
+    inventoryTransactions: initialInventoryTransactions.map(item => ({...item})),
+    customerOrders: initialCustomerOrders.map(order => ({
+      ...order,
+      items: order.items.map(item => ({...item})),
+    })),
     reorderRequests: initialReorderRequests.map(request => ({
       ...request,
       items: request.items.map(item => ({...item})),
@@ -69,7 +76,9 @@ function normalizeInventoryTransactions(value: unknown): InventoryTransaction[] 
       const productId =
         typeof typedEntry.productId === "string" ? typedEntry.productId : "";
       const movementType =
-        typedEntry.movementType === "IN" || typedEntry.movementType === "OUT"
+        typedEntry.movementType === "IN" ||
+        typedEntry.movementType === "OUT" ||
+        typedEntry.movementType === "ADJUSTMENT"
           ? typedEntry.movementType
           : null;
       const quantity =
@@ -109,7 +118,7 @@ function normalizeInventoryTransactions(value: unknown): InventoryTransaction[] 
 }
 
 function isValidRole(value: unknown): value is Role {
-  return value === "store" || value === "warehouse";
+  return value === "store" || value === "warehouse" || value === "stakeholder";
 }
 
 function isValidStoreId(value: unknown): value is string {
@@ -202,6 +211,10 @@ function normalizeShippingOrders(
         eta?: unknown;
         status?: unknown;
         items?: unknown;
+        carrier?: unknown;
+        trackingCode?: unknown;
+        currentLocation?: unknown;
+        statusHistory?: unknown;
       };
 
       const id = typeof typedOrder.id === "string" ? typedOrder.id : "";
@@ -217,6 +230,19 @@ function normalizeShippingOrders(
         typedOrder.status === "Delivered"
           ? typedOrder.status
           : "Draft";
+      const carrier =
+        typeof typedOrder.carrier === "string" && typedOrder.carrier.trim().length
+          ? typedOrder.carrier
+          : "Cebu Health Logistics";
+      const trackingCode =
+        typeof typedOrder.trackingCode === "string" && typedOrder.trackingCode.trim().length
+          ? typedOrder.trackingCode
+          : `DEMO-${id.toUpperCase()}`;
+      const currentLocation =
+        typeof typedOrder.currentLocation === "string" &&
+        typedOrder.currentLocation.trim().length
+          ? typedOrder.currentLocation
+          : "Cebu Distribution Center";
 
       const parsedItems = Array.isArray(typedOrder.items)
         ? typedOrder.items
@@ -249,9 +275,100 @@ function normalizeShippingOrders(
         return null;
       }
 
-      return {id, requestId, storeId, shipDate, eta, status, items};
+      const statusHistory = normalizeStatusHistory(
+        typedOrder.statusHistory,
+        shipDate,
+        status,
+        currentLocation,
+      );
+
+      return {
+        id,
+        requestId,
+        storeId,
+        shipDate,
+        eta,
+        status,
+        items,
+        carrier,
+        trackingCode,
+        currentLocation,
+        statusHistory,
+      };
     })
     .filter(Boolean) as ShippingOrder[];
+}
+
+function normalizeStatusHistory(
+  value: unknown,
+  shipDate: string,
+  currentStatus: ShippingStatus,
+  currentLocation: string,
+): ShippingStatusEvent[] {
+  if (!Array.isArray(value)) {
+    return [
+      {
+        status: currentStatus,
+        occurredAt: `${shipDate}T09:00:00.000Z`,
+        location: currentLocation,
+        note: "Status recorded",
+      },
+    ];
+  }
+
+  const history = value
+    .map(entry => {
+      if (!entry || typeof entry !== "object") return null;
+      const typedEntry = entry as {
+        status?: unknown;
+        occurredAt?: unknown;
+        location?: unknown;
+        note?: unknown;
+      };
+
+      const status =
+        typedEntry.status === "Draft" ||
+        typedEntry.status === "Packed" ||
+        typedEntry.status === "In Transit" ||
+        typedEntry.status === "Delivered"
+          ? typedEntry.status
+          : null;
+      const occurredAt =
+        typeof typedEntry.occurredAt === "string" ? typedEntry.occurredAt : "";
+      const location = typeof typedEntry.location === "string" ? typedEntry.location : "";
+      const note = typeof typedEntry.note === "string" ? typedEntry.note : "Status update";
+
+      if (!status || !occurredAt || !location) {
+        return null;
+      }
+
+      return {status, occurredAt, location, note};
+    })
+    .filter(Boolean) as ShippingStatusEvent[];
+
+  if (history.length) return history;
+
+  return [
+    {
+      status: currentStatus,
+      occurredAt: `${shipDate}T09:00:00.000Z`,
+      location: currentLocation,
+      note: "Status recorded",
+    },
+  ];
+}
+
+function buildShipmentLocation(status: ShippingStatus, storeName: string): string {
+  if (status === "Draft" || status === "Packed") return "Cebu Distribution Center";
+  if (status === "In Transit") return "In Transit to branch";
+  return storeName;
+}
+
+function buildStatusNote(status: ShippingStatus): string {
+  if (status === "Draft") return "Dispatch drafted by warehouse team";
+  if (status === "Packed") return "Shipment packed and validated";
+  if (status === "In Transit") return "Shipment has departed warehouse";
+  return "Shipment delivered to branch";
 }
 
 function loadState(): PrototypeStateData {
@@ -357,7 +474,7 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
             quantity: safeQty,
             occurredAt: timestamp,
             reference: "manual-adjustment",
-            note: "Inventory adjustment",
+            note: movementType === "ADJUSTMENT" ? "Inventory adjustment" : "Manual update",
           };
 
           return {
@@ -428,6 +545,25 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
               productId: item.productId,
               quantity: item.requestedQty,
             })),
+            carrier: "Cebu Health Logistics",
+            trackingCode: `DEMO-${nextId.toUpperCase()}`,
+            currentLocation: buildShipmentLocation(
+              input.status,
+              stores.find(store => store.id === request.storeId)?.name ??
+                "Destination branch",
+            ),
+            statusHistory: [
+              {
+                status: input.status,
+                occurredAt: new Date().toISOString(),
+                location: buildShipmentLocation(
+                  input.status,
+                  stores.find(store => store.id === request.storeId)?.name ??
+                    "Destination branch",
+                ),
+                note: buildStatusNote(input.status),
+              },
+            ],
           };
 
           return {
@@ -461,11 +597,28 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
           if (!transitionAllowed) return previous;
 
           updatedId = shipment.id;
+          const storeName =
+            stores.find(store => store.id === shipment.storeId)?.name ??
+            "Destination branch";
+          const nextLocation = buildShipmentLocation(nextStatus, storeName);
+          const nextEvent: ShippingStatusEvent = {
+            status: nextStatus,
+            occurredAt: new Date().toISOString(),
+            location: nextLocation,
+            note: buildStatusNote(nextStatus),
+          };
 
           return {
             ...previous,
             shippingOrders: previous.shippingOrders.map(order =>
-              order.id === shipment.id ? {...order, status: nextStatus} : order,
+              order.id === shipment.id
+                ? {
+                    ...order,
+                    status: nextStatus,
+                    currentLocation: nextLocation,
+                    statusHistory: [...order.statusHistory, nextEvent],
+                  }
+                : order,
             ),
             reorderRequests: previous.reorderRequests.map(request =>
               request.id === shipment.requestId
@@ -493,6 +646,9 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
 
           receivedId = shipment.id;
           const timestamp = new Date().toISOString();
+          const storeName =
+            stores.find(store => store.id === shipment.storeId)?.name ??
+            "Destination branch";
           const itemMap = shipment.items.reduce(
             (acc, item) => {
               acc[item.productId] = (acc[item.productId] ?? 0) + item.quantity;
@@ -525,7 +681,26 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
                 : item,
             ),
             shippingOrders: previous.shippingOrders.map(order =>
-              order.id === shipment.id ? {...order, status: "Delivered"} : order,
+              order.id === shipment.id
+                ? {
+                    ...order,
+                    status: "Delivered",
+                    currentLocation: storeName,
+                    statusHistory: [...order.statusHistory].some(
+                      event => event.status === "Delivered",
+                    )
+                      ? order.statusHistory
+                      : [
+                          ...order.statusHistory,
+                          {
+                            status: "Delivered",
+                            occurredAt: timestamp,
+                            location: storeName,
+                            note: "Shipment delivered to branch",
+                          },
+                        ],
+                  }
+                : order,
             ),
             inventoryTransactions: [...transactions, ...previous.inventoryTransactions],
           };

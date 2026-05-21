@@ -18,11 +18,14 @@ interface TourStep {
 const roleTitles: Record<Role, string> = {
   store: "Pharmacy Branch Console",
   warehouse: "Central Distribution Console",
+  stakeholder: "Stakeholder Oversight Console",
 };
 
 const roleDescriptions: Record<Role, string> = {
   store: "Track medication movement, detect shortages, and request replenishment.",
   warehouse: "Monitor all pharmacy branches, prioritize shortages, and prepare dispatches.",
+  stakeholder:
+    "Review network-wide movement, service pressure, and fulfillment performance in read-only mode.",
 };
 
 const navLinks: Record<Role, Array<{path: string; label: string}>> = {
@@ -37,6 +40,11 @@ const navLinks: Record<Role, Array<{path: string; label: string}>> = {
     {path: "/app/warehouse/dashboard", label: "Dashboard"},
     {path: "/app/warehouse/monitor", label: "Branch Monitoring"},
     {path: "/app/warehouse/shipping", label: "Dispatch Orders"},
+    {path: "/app/warehouse/tracking", label: "Shipment Tracking"},
+  ],
+  stakeholder: [
+    {path: "/app/stakeholder/dashboard", label: "Dashboard"},
+    {path: "/app/stakeholder/reports", label: "Movement Reports"},
   ],
 };
 
@@ -114,38 +122,76 @@ export function AppShell({role}: AppShellProps) {
       ];
     }
 
+    if (activeTourRole === "warehouse") {
+      return [
+        {
+          path: "/app/warehouse/dashboard",
+          title: "Distribution Dashboard",
+          script:
+            "Start distribution operations here by reviewing branch demand signals, shipment workload, and fulfillment priorities.",
+          talkingPoints: [
+            "Review pending refill requests as incoming demand from the branch network.",
+            "Check open shipments to track work already committed and in motion.",
+            "Open request details to evaluate urgency and dispatch quantities.",
+          ],
+        },
+        {
+          path: "/app/warehouse/shipping",
+          title: "Dispatch Management",
+          script:
+            "Use this page to execute fulfillment from request selection through dispatch progression and shipment tracking.",
+          talkingPoints: [
+            "Create dispatches to commit stock for branch replenishment.",
+            "Progress dispatches through packed and in-transit checkpoints.",
+            "Review completed dispatch history for SLA visibility and follow-through.",
+          ],
+        },
+        {
+          path: "/app/warehouse/tracking",
+          title: "Shipment Tracking Board",
+          script:
+            "Use this page to present shipment location checkpoints and timeline movement in one board.",
+          talkingPoints: [
+            "Filter by branch and status for focused movement storytelling.",
+            "Open timeline checkpoints to explain where each shipment is now.",
+            "Use this board as the primary live-demo movement surface.",
+          ],
+        },
+        {
+          path: "/app/warehouse/monitor",
+          title: "Branch Monitoring and Network Ledger",
+          script:
+            "Use this page for network supervision by comparing branch health and verifying centralized movement auditability.",
+          talkingPoints: [
+            "Inspect branch-level inventory detail to identify at-risk locations early.",
+            "Review consolidated IN and OUT records across branches in one network ledger.",
+            "Use this as the cross-branch audit and decision surface for central operations.",
+          ],
+        },
+      ];
+    }
+
     return [
       {
-        path: "/app/warehouse/dashboard",
-        title: "Distribution Dashboard",
+        path: "/app/stakeholder/dashboard",
+        title: "Executive Dashboard",
         script:
-          "Start distribution operations here by reviewing branch demand signals, shipment workload, and fulfillment priorities.",
+          "Use this page for executive snapshots covering movement pressure, refill load, and in-transit visibility.",
         talkingPoints: [
-          "Review pending refill requests as incoming demand from the branch network.",
-          "Check open shipments to track work already committed and in motion.",
-          "Open request details to evaluate urgency and dispatch quantities.",
+          "Use the KPI cards for immediate network risk posture.",
+          "Call out top-moving medications to show demand concentration.",
+          "Pivot into reports for transaction-level transparency.",
         ],
       },
       {
-        path: "/app/warehouse/shipping",
-        title: "Dispatch Management",
+        path: "/app/stakeholder/reports",
+        title: "Movement Reporting",
         script:
-          "Use this page to execute fulfillment from request selection through dispatch progression and shipment tracking.",
+          "Use this report to trace movement events and shipment cycle time without operational editing.",
         talkingPoints: [
-          "Create dispatches to commit stock for branch replenishment.",
-          "Progress dispatches through packed and in-transit checkpoints.",
-          "Review completed dispatch history for SLA visibility and follow-through.",
-        ],
-      },
-      {
-        path: "/app/warehouse/monitor",
-        title: "Branch Monitoring and Network Ledger",
-        script:
-          "Use this page for network supervision by comparing branch health and verifying centralized movement auditability.",
-        talkingPoints: [
-          "Inspect branch-level inventory detail to identify at-risk locations early.",
-          "Review consolidated IN and OUT records across branches in one network ledger.",
-          "Use this as the cross-branch audit and decision surface for central operations.",
+          "Filter by branch to isolate local movement trends.",
+          "Use cycle time view to explain delivery performance over time.",
+          "Highlight that this role is read-only for governance demonstrations.",
         ],
       },
     ];
@@ -165,7 +211,11 @@ export function AppShell({role}: AppShellProps) {
     setTourStepIndex(0);
     setPreferredRole(selectedTourRole);
     navigate(
-      selectedTourRole === "store" ? "/app/store/dashboard" : "/app/warehouse/dashboard",
+      selectedTourRole === "store"
+        ? "/app/store/dashboard"
+        : selectedTourRole === "warehouse"
+          ? "/app/warehouse/dashboard"
+          : "/app/stakeholder/dashboard",
     );
   };
 
@@ -203,6 +253,7 @@ export function AppShell({role}: AppShellProps) {
           >
             <option value="store">Pharmacy Branch</option>
             <option value="warehouse">Distribution Center</option>
+            <option value="stakeholder">Stakeholder</option>
           </select>
         </div>
 
@@ -307,6 +358,13 @@ export function AppShell({role}: AppShellProps) {
                       onClick={() => chooseTourRole("warehouse")}
                     >
                       Distribution View
+                    </button>
+                    <button
+                      type="button"
+                      className="tour-choice-btn"
+                      onClick={() => chooseTourRole("stakeholder")}
+                    >
+                      Stakeholder View
                     </button>
                   </div>
                   <div className="actions-row tour-actions">

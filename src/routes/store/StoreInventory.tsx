@@ -117,6 +117,8 @@ export function StoreInventory() {
             <tr>
               <th>Shipment ID</th>
               <th>ETA</th>
+              <th>Tracking</th>
+              <th>Current Location</th>
               <th>Status</th>
               <th>Items</th>
               <th>Total Qty</th>
@@ -129,6 +131,8 @@ export function StoreInventory() {
                 <tr key={shipment.id}>
                   <td>{shipment.id}</td>
                   <td>{shipment.eta}</td>
+                  <td>{shipment.trackingCode}</td>
+                  <td>{shipment.currentLocation}</td>
                   <td>{shipment.status}</td>
                   <td>{shipment.items.length}</td>
                   <td>{shipment.items.reduce((acc, item) => acc + item.quantity, 0)}</td>
@@ -148,7 +152,7 @@ export function StoreInventory() {
               ))
             ) : (
               <tr>
-                <td colSpan={6}>No inbound shipments available.</td>
+                <td colSpan={8}>No inbound shipments available.</td>
               </tr>
             )}
           </tbody>

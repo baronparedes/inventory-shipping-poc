@@ -10,6 +10,9 @@ import {StoreReorder} from "./routes/store/StoreReorder";
 import {WarehouseDashboard} from "./routes/warehouse/WarehouseDashboard";
 import {WarehouseMonitor} from "./routes/warehouse/WarehouseMonitor";
 import {WarehouseShipping} from "./routes/warehouse/WarehouseShipping";
+import {WarehouseTracking} from "./routes/warehouse/WarehouseTracking";
+import {StakeholderDashboard} from "./routes/stakeholder/StakeholderDashboard";
+import {StakeholderMovementReport} from "./routes/stakeholder/StakeholderMovementReport";
 
 function NotFoundPage() {
   return (
@@ -41,6 +44,13 @@ function App() {
         <Route path="dashboard" element={<WarehouseDashboard />} />
         <Route path="monitor" element={<WarehouseMonitor />} />
         <Route path="shipping" element={<WarehouseShipping />} />
+        <Route path="tracking" element={<WarehouseTracking />} />
+      </Route>
+
+      <Route path="/app/stakeholder" element={<AppShell role="stakeholder" />}>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<StakeholderDashboard />} />
+        <Route path="reports" element={<StakeholderMovementReport />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

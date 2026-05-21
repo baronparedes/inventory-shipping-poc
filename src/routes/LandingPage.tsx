@@ -24,6 +24,9 @@ export function LandingPage() {
         <Link className="secondary-btn" to="/app/warehouse/dashboard">
           Jump to Distribution View
         </Link>
+        <Link className="secondary-btn" to="/app/stakeholder/dashboard">
+          Jump to Stakeholder View
+        </Link>
       </div>
     </section>
   );

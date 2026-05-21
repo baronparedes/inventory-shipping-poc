@@ -8,7 +8,13 @@ interface RefillFormItem {
 }
 
 export function StoreReorder() {
-  const {storeInventory, createReorderRequest, selectedStoreId} = usePrototypeState();
+  const {
+    storeInventory,
+    reorderRequests,
+    shippingOrders,
+    createReorderRequest,
+    selectedStoreId,
+  } = usePrototypeState();
   const activeStore = getStoreById(selectedStoreId) ?? stores[0];
   const [feedback, setFeedback] = useState("");
 
@@ -26,6 +32,18 @@ export function StoreReorder() {
   );
 
   const [formItems, setFormItems] = useState<Record<string, RefillFormItem>>({});
+
+  const requestHistory = useMemo(
+    () =>
+      reorderRequests
+        .filter(request => request.storeId === activeStore.id)
+        .map(request => ({
+          ...request,
+          shipment: shippingOrders.find(shipment => shipment.requestId === request.id),
+        }))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [reorderRequests, shippingOrders, activeStore.id],
+  );
 
   return (
     <section>
@@ -151,6 +169,46 @@ export function StoreReorder() {
             Submit to Distribution
           </button>
         </div>
+      </article>
+
+      <article className="card">
+        <h3>Refill and Dispatch History</h3>
+        <p className="muted-copy">
+          Track each request from branch submission through dispatch and delivery stages.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Request ID</th>
+              <th>Created</th>
+              <th>Priority</th>
+              <th>Request Status</th>
+              <th>Dispatch ID</th>
+              <th>Dispatch Status</th>
+              <th>ETA</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requestHistory.length ? (
+              requestHistory.map(request => (
+                <tr key={request.id}>
+                  <td>{request.id}</td>
+                  <td>{request.createdAt}</td>
+                  <td>{request.priority}</td>
+                  <td>{request.status}</td>
+                  <td>{request.shipment?.id ?? "Not dispatched"}</td>
+                  <td>{request.shipment?.status ?? "Pending dispatch"}</td>
+                  <td>{request.shipment?.eta ?? "-"}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={7}>No refill requests created for this branch yet.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </article>
     </section>
   );

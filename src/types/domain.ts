@@ -1,4 +1,8 @@
-export type Role = "store" | "warehouse";
+export type Role = "store" | "warehouse" | "stakeholder";
+
+export type MovementType = "IN" | "OUT" | "ADJUSTMENT";
+
+export type ShippingStatus = "Draft" | "Packed" | "In Transit" | "Delivered";
 
 export interface Product {
   id: string;
@@ -26,7 +30,7 @@ export interface InventoryTransaction {
   id: string;
   storeId: string;
   productId: string;
-  movementType: "IN" | "OUT";
+  movementType: MovementType;
   quantity: number;
   occurredAt: string;
   reference: string;
@@ -66,12 +70,23 @@ export interface ShippingOrderItem {
   quantity: number;
 }
 
+export interface ShippingStatusEvent {
+  status: ShippingStatus;
+  occurredAt: string;
+  location: string;
+  note: string;
+}
+
 export interface ShippingOrder {
   id: string;
   requestId: string;
   storeId: string;
   shipDate: string;
   eta: string;
-  status: "Draft" | "Packed" | "In Transit" | "Delivered";
+  status: ShippingStatus;
   items: ShippingOrderItem[];
+  carrier: string;
+  trackingCode: string;
+  currentLocation: string;
+  statusHistory: ShippingStatusEvent[];
 }

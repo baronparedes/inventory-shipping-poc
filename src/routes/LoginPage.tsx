@@ -26,6 +26,7 @@ export function LoginPage() {
         >
           <option value="store">Pharmacy Branch User</option>
           <option value="warehouse">Distribution Planner</option>
+          <option value="stakeholder">Stakeholder (Read-only)</option>
         </select>
 
         <button

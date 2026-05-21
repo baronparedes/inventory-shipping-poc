@@ -2,13 +2,12 @@ import {createContext} from "react";
 import type {
   CustomerOrder,
   InventoryTransaction,
+  MovementType,
   ReorderRequest,
   Role,
   ShippingOrder,
   StoreInventoryItem,
 } from "../types/domain";
-
-type MovementType = "IN" | "OUT";
 
 interface CreateReorderInput {
   storeId: string;

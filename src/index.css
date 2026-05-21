@@ -460,6 +460,39 @@ label {
   flex-wrap: wrap;
 }
 
+.tracking-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.timeline-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: rgba(13, 148, 136, 0.05);
+}
+
+.shipment-timeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.shipment-timeline-list li {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.4rem;
+  background: #fff;
+}
+
 .landing-wrap,
 .login-wrap {
   max-width: 900px;
@@ -547,5 +580,10 @@ label {
     bottom: 0.8rem;
     width: calc(100vw - 1.6rem);
     max-height: min(76vh, 560px);
+  }
+
+  .tracking-filters,
+  .timeline-summary-grid {
+    grid-template-columns: 1fr;
   }
 }

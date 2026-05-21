@@ -8,6 +8,8 @@ export function WarehouseShipping() {
   const [feedback, setFeedback] = useState("");
   const [isCreateDispatchModalOpen, setIsCreateDispatchModalOpen] = useState(false);
   const [isConfirmDispatchModalOpen, setIsConfirmDispatchModalOpen] = useState(false);
+  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+  const [selectedTrackingShipmentId, setSelectedTrackingShipmentId] = useState("");
 
   const requestIdsWithDispatch = useMemo(
     () => new Set(shippingOrders.map(order => order.requestId)),
@@ -61,10 +63,17 @@ export function WarehouseShipping() {
   );
 
   useEffect(() => {
-    if (!isCreateDispatchModalOpen && !isConfirmDispatchModalOpen) return;
+    if (!isCreateDispatchModalOpen && !isConfirmDispatchModalOpen && !isTrackingModalOpen) {
+      return;
+    }
 
     const onEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (isTrackingModalOpen) {
+          setIsTrackingModalOpen(false);
+          setSelectedTrackingShipmentId("");
+          return;
+        }
         if (isConfirmDispatchModalOpen) {
           setIsConfirmDispatchModalOpen(false);
           return;
@@ -75,12 +84,12 @@ export function WarehouseShipping() {
 
     window.addEventListener("keydown", onEscape);
     return () => window.removeEventListener("keydown", onEscape);
-  }, [isCreateDispatchModalOpen, isConfirmDispatchModalOpen]);
+  }, [isCreateDispatchModalOpen, isConfirmDispatchModalOpen, isTrackingModalOpen]);
 
-  useEffect(() => {
-    console.log("Reorder Requests updated:", reorderRequests);
-    console.log("Shipping Orders updated:", shippingOrders);
-  }, [reorderRequests, shippingOrders]);
+  const selectedTrackingShipment = useMemo(
+    () => shippingOrders.find(order => order.id === selectedTrackingShipmentId),
+    [shippingOrders, selectedTrackingShipmentId],
+  );
 
   return (
     <section className="section-spacing">
@@ -152,6 +161,8 @@ export function WarehouseShipping() {
               <th>Destination Branch</th>
               <th>Ship Date</th>
               <th>ETA</th>
+              <th>Tracking</th>
+              <th>Location</th>
               <th>Items</th>
               <th>Total Qty</th>
               <th>Status</th>
@@ -166,6 +177,8 @@ export function WarehouseShipping() {
                   <td>{getStoreById(order.storeId)?.name}</td>
                   <td>{order.shipDate}</td>
                   <td>{order.eta}</td>
+                  <td>{order.trackingCode}</td>
+                  <td>{order.currentLocation}</td>
                   <td>{order.items.length}</td>
                   <td>{order.items.reduce((acc, item) => acc + item.quantity, 0)}</td>
                   <td>
@@ -212,12 +225,22 @@ export function WarehouseShipping() {
                         Mark Packed
                       </button>
                     )}
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={() => {
+                        setSelectedTrackingShipmentId(order.id);
+                        setIsTrackingModalOpen(true);
+                      }}
+                    >
+                      Track
+                    </button>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={8}>No active dispatches in queue.</td>
+                <td colSpan={10}>No active dispatches in queue.</td>
               </tr>
             )}
           </tbody>
@@ -237,6 +260,8 @@ export function WarehouseShipping() {
               <th>Destination Branch</th>
               <th>Ship Date</th>
               <th>ETA</th>
+              <th>Tracking</th>
+              <th>Location</th>
               <th>Items</th>
               <th>Total Qty</th>
               <th>Status</th>
@@ -250,6 +275,8 @@ export function WarehouseShipping() {
                   <td>{getStoreById(order.storeId)?.name}</td>
                   <td>{order.shipDate}</td>
                   <td>{order.eta}</td>
+                  <td>{order.trackingCode}</td>
+                  <td>{order.currentLocation}</td>
                   <td>{order.items.length}</td>
                   <td>{order.items.reduce((acc, item) => acc + item.quantity, 0)}</td>
                   <td>
@@ -259,7 +286,7 @@ export function WarehouseShipping() {
               ))
             ) : (
               <tr>
-                <td colSpan={7}>No completed dispatch history yet.</td>
+                <td colSpan={9}>No completed dispatch history yet.</td>
               </tr>
             )}
           </tbody>
@@ -513,6 +540,83 @@ export function WarehouseShipping() {
                 Confirm Dispatch
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isTrackingModalOpen && selectedTrackingShipment ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => {
+            setIsTrackingModalOpen(false);
+            setSelectedTrackingShipmentId("");
+          }}
+        >
+          <div
+            className="modal-content"
+            role="dialog"
+            aria-modal="true"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="table-header">
+              <h3>Shipment Movement Timeline</h3>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => {
+                  setIsTrackingModalOpen(false);
+                  setSelectedTrackingShipmentId("");
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="form-grid">
+              <p>
+                <strong>Dispatch ID:</strong> {selectedTrackingShipment.id}
+              </p>
+              <p>
+                <strong>Tracking:</strong> {selectedTrackingShipment.trackingCode}
+              </p>
+              <p>
+                <strong>Carrier:</strong> {selectedTrackingShipment.carrier}
+              </p>
+              <p>
+                <strong>Status:</strong> {selectedTrackingShipment.status}
+              </p>
+              <p>
+                <strong>Current Location:</strong>{" "}
+                {selectedTrackingShipment.currentLocation}
+              </p>
+              <p>
+                <strong>ETA:</strong> {selectedTrackingShipment.eta}
+              </p>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Checkpoint Time</th>
+                  <th>Status</th>
+                  <th>Location</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...selectedTrackingShipment.statusHistory]
+                  .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt))
+                  .map((event, index) => (
+                    <tr key={`${event.occurredAt}-${index}`}>
+                      <td>{new Date(event.occurredAt).toLocaleString()}</td>
+                      <td>{event.status}</td>
+                      <td>{event.location}</td>
+                      <td>{event.note}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
           </div>
         </div>
       ) : null}
