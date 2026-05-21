@@ -19,13 +19,14 @@
   max-height: 85vh;
   overflow: auto;
   padding: 1rem;
+  padding-top: 2.5rem; /* Increased padding to create space for the close button */
   display: grid;
   gap: 0.8rem;
 }
 
 .modal-close {
   position: absolute;
-  top: 0.6rem;
+  top: 0.4rem; /* Adjusted top position for better alignment */
   right: 0.6rem;
   background: none;
   border: 1px solid var(--line);

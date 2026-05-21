@@ -307,7 +307,8 @@ label {
 
 .actions-row {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center; /* Center horizontally */
+  align-items: center; /* Center vertically */
   gap: 0.6rem;
 }
 
