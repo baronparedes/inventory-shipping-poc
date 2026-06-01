@@ -1,6 +1,7 @@
 export type Role = "store" | "warehouse" | "stakeholder";
 
 export type MovementType = "IN" | "OUT" | "ADJUSTMENT";
+export type ExpiryStatus = "Healthy" | "Near Expiry" | "Expired";
 
 export type ShippingStatus = "Draft" | "Packed" | "In Transit" | "Delivered";
 
@@ -11,6 +12,7 @@ export interface Product {
   category: "OTC" | "Prescription" | "Cold Chain" | "Supplies";
   reorderThreshold: number;
   warehouseStock: number;
+  expiryWarningDays: number;
 }
 
 export interface Store {
@@ -20,10 +22,20 @@ export interface Store {
   manager: string;
 }
 
+export interface InventoryBatch {
+  batchId: string;
+  quantity: number;
+  expiryDate: string;
+}
+
 export interface StoreInventoryItem {
   storeId: string;
   productId: string;
+  batches: InventoryBatch[];
   onHand: number;
+  expiredUnits: number;
+  nearExpiryUnits: number;
+  nextExpiryDate: string;
 }
 
 export interface InventoryTransaction {
@@ -35,11 +47,16 @@ export interface InventoryTransaction {
   occurredAt: string;
   reference: string;
   note: string;
+  batchId?: string;
+  expiryDate?: string;
+  expiryStatus?: ExpiryStatus;
 }
 
 export interface CustomerOrderItem {
   productId: string;
   quantity: number;
+  batchId?: string;
+  expiryDate?: string;
 }
 
 export interface CustomerProfile {
@@ -85,6 +102,8 @@ export interface ReorderRequest {
 export interface ShippingOrderItem {
   productId: string;
   quantity: number;
+  batchId: string;
+  expiryDate: string;
 }
 
 export interface ShippingStatusEvent {

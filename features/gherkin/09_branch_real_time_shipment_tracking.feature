@@ -3,6 +3,8 @@ Feature: Real-time shipment tracking for branch operators
   I want to track the movement of shipments to my branch in real time
   So that I can anticipate arrivals and prepare for receiving
 
+  # Terms are defined in docs/glossary.md
+
   Scenario: View real-time status of inbound shipments
     Given I am logged in as a branch operator
     When I open the inbound shipments tracking view
@@ -24,3 +26,15 @@ Feature: Real-time shipment tracking for branch operators
     Given I am viewing a shipment's details
     When I open the movement history
     Then I should see a timeline of all status changes and location updates for that shipment
+
+  Scenario: View expiration risk in shipment details
+    Given I am viewing details of an inbound shipment
+    When the shipment contains medication batches
+    Then I should see batch-level expiration dates
+    And I should see warnings for any near-expiry or expired items before receiving
+
+  Scenario: Highlight incomplete shipment metadata before receiving
+    Given I am viewing details of an inbound shipment
+    When one or more shipment lines are missing batch identifier or expiration date
+    Then I should see a quality-check warning that receiving cannot proceed
+    And I should see which shipment lines require metadata completion

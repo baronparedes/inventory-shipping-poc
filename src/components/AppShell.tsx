@@ -80,12 +80,14 @@ export function AppShell({role}: AppShellProps) {
           path: "/app/store/customer-orders",
           title: "Customer Order Entry",
           script:
-            "Follow this workflow to capture customer details, build an order quickly, and complete it with required validations.",
+            "Follow this workflow to capture customer details, build an order quickly, and complete it with FEFO and expiry-aware validations.",
           talkingPoints: [
             "Add medications through search so orders can be assembled without leaving this workspace.",
             "Use inline quantity edits for quick corrections during counter interaction.",
             "Complete required fields (customer name and Rx number) before finalizing the order.",
-            "Complete the order to register stock-out movement for branch-level traceability.",
+            "Review FEFO next-batch guidance in the order grid before confirming dispense.",
+            "Expired stock is blocked while near-expiry stock is warning-only per policy.",
+            "Complete the order to register per-batch stock-out movement for branch-level traceability.",
           ],
         },
         {
@@ -103,11 +105,12 @@ export function AppShell({role}: AppShellProps) {
           path: "/app/store/inventory",
           title: "Receiving and Branch Ledger",
           script:
-            "Use this page to execute receiving, update on-hand stock, and verify movement audit entries.",
+            "Use this page to execute quality checks, receive shipment batches, update on-hand stock, and verify movement audit entries.",
           talkingPoints: [
             "Open shipment details and verify expected versus delivered quantities before receiving.",
-            "Confirm receipt to apply controlled stock increases to branch inventory.",
-            "Review IN and OUT entries with timestamps and transaction context in the movement ledger.",
+            "Quality check each shipment line and confirm batch ID plus expiry date are present before intake.",
+            "Confirm receipt to apply controlled stock increases at batch level in branch inventory.",
+            "Review IN and OUT entries with timestamps, references, and batch context in the movement ledger.",
             "Use this ledger as the branch-level source for reconciliation and accountability.",
           ],
         },
@@ -142,21 +145,25 @@ export function AppShell({role}: AppShellProps) {
           path: "/app/warehouse/shipping",
           title: "Dispatch Management",
           script:
-            "Use this page to execute fulfillment from request selection through dispatch progression and shipment tracking.",
+            "Use this page to execute fulfillment from request selection through FEFO batch preview, shipment metadata validation, dispatch progression, and tracking.",
           talkingPoints: [
             "Create dispatches to commit stock for branch replenishment.",
+            "Review FEFO batch preview before saving or confirming dispatch.",
+            "Use expiry status context to understand near-expiry versus healthy dispatch lines.",
+            "Ensure each shipment line includes batch ID and expiry date for branch quality checks.",
             "Progress dispatches through packed and in-transit checkpoints.",
-            "Review completed dispatch history for SLA visibility and follow-through.",
+            "Review dispatched batch lines and shipment timeline for traceable follow-through.",
           ],
         },
         {
           path: "/app/warehouse/tracking",
           title: "Shipment Tracking Board",
           script:
-            "Use this page to present shipment location checkpoints and timeline movement in one board.",
+            "Use this page to present shipment location checkpoints, batch metadata, and timeline movement in one board.",
           talkingPoints: [
             "Filter by branch and status for focused movement storytelling.",
             "Open timeline checkpoints to explain where each shipment is now.",
+            "Use batch ID and expiry date details to support receiving quality-check readiness.",
             "Use this board as the primary live-demo movement surface.",
           ],
         },
@@ -164,10 +171,11 @@ export function AppShell({role}: AppShellProps) {
           path: "/app/warehouse/monitor",
           title: "Branch Monitoring and Network Ledger",
           script:
-            "Use this page for network supervision by comparing branch health and verifying centralized movement auditability.",
+            "Use this page for network supervision by comparing branch health and verifying centralized movement auditability with expiry context.",
           talkingPoints: [
             "Inspect branch-level inventory detail to identify at-risk locations early.",
             "Review consolidated IN and OUT records across branches in one network ledger.",
+            "Use batch and expiry metadata to explain FEFO outcomes across the network.",
             "Use this as the cross-branch audit and decision surface for central operations.",
           ],
         },
@@ -179,10 +187,11 @@ export function AppShell({role}: AppShellProps) {
         path: "/app/stakeholder/dashboard",
         title: "Executive Dashboard",
         script:
-          "Use this page for executive snapshots covering movement pressure, refill load, and in-transit visibility.",
+          "Use this page for executive snapshots covering movement pressure, refill load, in-transit visibility, and expiry exposure.",
         talkingPoints: [
           "Use the KPI cards for immediate network risk posture.",
           "Call out top-moving medications to show demand concentration.",
+          "Highlight near-expiry and expired stock posture as part of service risk context.",
           "Pivot into reports for transaction-level transparency.",
         ],
       },
@@ -190,9 +199,10 @@ export function AppShell({role}: AppShellProps) {
         path: "/app/stakeholder/reports",
         title: "Movement Reporting",
         script:
-          "Use this report to trace movement events and shipment cycle time without operational editing.",
+          "Use this report to trace movement events, batch-level expiry context, and shipment cycle time without operational editing.",
         talkingPoints: [
           "Filter by branch to isolate local movement trends.",
+          "Use batch and expiry details to audit FEFO policy adherence.",
           "Use cycle time view to explain delivery performance over time.",
           "Highlight that this role is read-only for governance demonstrations.",
         ],

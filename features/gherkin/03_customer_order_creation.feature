@@ -3,6 +3,8 @@ Feature: Customer medication order creation
   I want fast and accurate medication order entry
   So that I can serve customers efficiently
 
+  # Terms are defined in docs/glossary.md
+
   Scenario: Require order header details before adding medications
     Given I am creating a customer medication order
     When customer name or order reference is missing
@@ -45,3 +47,23 @@ Feature: Customer medication order creation
     Given I am creating a new customer medication order
     When I search for and select a returning customer
     Then their stored details should be auto-filled in the order form
+
+  Scenario: Block dispensing from expired batches
+    Given I am creating a valid customer medication order
+    And only expired stock exists for a selected medication
+    When I attempt to complete the order
+    Then the order completion should be blocked for that medication
+    And I should see a validation message indicating expired stock cannot be dispensed
+
+  Scenario: Warn but allow dispensing from near-expiry batches
+    Given I am creating a valid customer medication order
+    And available stock for a selected medication is near-expiry but not expired
+    When I attempt to complete the order
+    Then I should see a near-expiry warning
+    And I should still be allowed to complete the order
+
+  Scenario: Dispense using FEFO sequence for eligible stock
+    Given I am creating a valid customer medication order
+    And multiple non-expired batches exist for the same medication
+    When I complete the order
+    Then stock deduction should prioritize the earliest non-expired expiration date first

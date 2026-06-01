@@ -3,6 +3,7 @@ import {
   customerProfiles as initialCustomerProfiles,
   customerOrders as initialCustomerOrders,
   inventoryTransactions as initialInventoryTransactions,
+  products,
   reorderRequests as initialReorderRequests,
   shippingOrders as initialShippingOrders,
   stores,
@@ -11,6 +12,8 @@ import {
 import type {
   CustomerProfile,
   CustomerOrder,
+  ExpiryStatus,
+  InventoryBatch,
   InventoryTransaction,
   ReorderRequest,
   Role,
@@ -38,9 +41,238 @@ interface PrototypeStateData {
   selectedStoreId: string;
 }
 
+interface BatchAllocation {
+  productId: string;
+  batchId: string;
+  expiryDate: string;
+  quantity: number;
+  expiryStatus: ExpiryStatus;
+}
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+function getProductWarningDays(productId: string): number {
+  return products.find(product => product.id === productId)?.expiryWarningDays ?? 30;
+}
+
+function parseExpiryDateToMs(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+}
+
+function normalizeBatches(value: unknown): InventoryBatch[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map(entry => {
+      if (!entry || typeof entry !== "object") return null;
+      const typedEntry = entry as {
+        batchId?: unknown;
+        quantity?: unknown;
+        expiryDate?: unknown;
+      };
+
+      const batchId = typeof typedEntry.batchId === "string" ? typedEntry.batchId : "";
+      const quantity =
+        typeof typedEntry.quantity === "number" && typedEntry.quantity > 0
+          ? Math.floor(typedEntry.quantity)
+          : 0;
+      const expiryDate =
+        typeof typedEntry.expiryDate === "string" ? typedEntry.expiryDate : "";
+
+      if (!batchId || !quantity || !expiryDate) return null;
+      return {batchId, quantity, expiryDate};
+    })
+    .filter(Boolean) as InventoryBatch[];
+}
+
+function fallbackBatchesFromSummary(
+  storeId: string,
+  productId: string,
+  onHand: number,
+  expiredUnits: number,
+  nearExpiryUnits: number,
+  nextExpiryDate: string,
+): InventoryBatch[] {
+  const healthyUnits = Math.max(0, onHand - expiredUnits - nearExpiryUnits);
+  const fallback: InventoryBatch[] = [];
+
+  if (expiredUnits > 0) {
+    fallback.push({
+      batchId: `${storeId}-${productId}-fallback-expired`,
+      quantity: expiredUnits,
+      expiryDate: "2026-05-15",
+    });
+  }
+
+  if (nearExpiryUnits > 0) {
+    fallback.push({
+      batchId: `${storeId}-${productId}-fallback-near`,
+      quantity: nearExpiryUnits,
+      expiryDate: nextExpiryDate || "2026-06-15",
+    });
+  }
+
+  if (healthyUnits > 0) {
+    fallback.push({
+      batchId: `${storeId}-${productId}-fallback-healthy`,
+      quantity: healthyUnits,
+      expiryDate: "2026-10-15",
+    });
+  }
+
+  return fallback;
+}
+
+function deriveInventoryFromBatches(
+  batches: InventoryBatch[],
+  warningDays: number,
+): Pick<
+  StoreInventoryItem,
+  "onHand" | "expiredUnits" | "nearExpiryUnits" | "nextExpiryDate"
+> {
+  const now = Date.now();
+  const activeBatches = batches.filter(batch => batch.quantity > 0);
+  const onHand = activeBatches.reduce((acc, batch) => acc + batch.quantity, 0);
+
+  const expiredUnits = activeBatches
+    .filter(batch => parseExpiryDateToMs(batch.expiryDate) < now)
+    .reduce((acc, batch) => acc + batch.quantity, 0);
+
+  const nearExpiryUnits = activeBatches
+    .filter(batch => {
+      const expiryMs = parseExpiryDateToMs(batch.expiryDate);
+      if (expiryMs < now) return false;
+      const daysToExpiry = Math.floor((expiryMs - now) / DAY_IN_MS);
+      return daysToExpiry <= warningDays;
+    })
+    .reduce((acc, batch) => acc + batch.quantity, 0);
+
+  const nextExpiryDate = [...activeBatches].sort(
+    (a, b) => parseExpiryDateToMs(a.expiryDate) - parseExpiryDateToMs(b.expiryDate),
+  )[0]?.expiryDate;
+
+  return {
+    onHand,
+    expiredUnits,
+    nearExpiryUnits,
+    nextExpiryDate: nextExpiryDate ?? "",
+  };
+}
+
+function getUsableStock(item: StoreInventoryItem): number {
+  const now = Date.now();
+  return item.batches
+    .filter(batch => batch.quantity > 0 && parseExpiryDateToMs(batch.expiryDate) >= now)
+    .reduce((acc, batch) => acc + batch.quantity, 0);
+}
+
+function allocateFefoBatches(
+  inventoryItem: StoreInventoryItem,
+  requestedQty: number,
+): BatchAllocation[] | null {
+  const now = Date.now();
+  const warningDays = getProductWarningDays(inventoryItem.productId);
+  let remaining = requestedQty;
+
+  const candidateBatches = [...inventoryItem.batches]
+    .filter(batch => batch.quantity > 0)
+    .sort((a, b) => parseExpiryDateToMs(a.expiryDate) - parseExpiryDateToMs(b.expiryDate));
+
+  const allocations: BatchAllocation[] = [];
+
+  for (const batch of candidateBatches) {
+    const expiryMs = parseExpiryDateToMs(batch.expiryDate);
+    if (expiryMs < now) continue;
+    if (remaining <= 0) break;
+
+    const taken = Math.min(remaining, batch.quantity);
+    const daysToExpiry = Math.floor((expiryMs - now) / DAY_IN_MS);
+    allocations.push({
+      productId: inventoryItem.productId,
+      batchId: batch.batchId,
+      expiryDate: batch.expiryDate,
+      quantity: taken,
+      expiryStatus: daysToExpiry <= warningDays ? "Near Expiry" : "Healthy",
+    });
+    remaining -= taken;
+  }
+
+  if (remaining > 0) return null;
+  return allocations;
+}
+
+function normalizeStoreInventory(value: unknown): StoreInventoryItem[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map(entry => {
+      if (!entry || typeof entry !== "object") return null;
+
+      const typedEntry = entry as {
+        storeId?: unknown;
+        productId?: unknown;
+        batches?: unknown;
+        onHand?: unknown;
+        expiredUnits?: unknown;
+        nearExpiryUnits?: unknown;
+        nextExpiryDate?: unknown;
+      };
+
+      const storeId = typeof typedEntry.storeId === "string" ? typedEntry.storeId : "";
+      const productId =
+        typeof typedEntry.productId === "string" ? typedEntry.productId : "";
+      const onHand =
+        typeof typedEntry.onHand === "number" && typedEntry.onHand >= 0
+          ? Math.floor(typedEntry.onHand)
+          : 0;
+      const expiredUnits =
+        typeof typedEntry.expiredUnits === "number" && typedEntry.expiredUnits >= 0
+          ? Math.floor(typedEntry.expiredUnits)
+          : 0;
+      const nearExpiryUnits =
+        typeof typedEntry.nearExpiryUnits === "number" && typedEntry.nearExpiryUnits >= 0
+          ? Math.floor(typedEntry.nearExpiryUnits)
+          : 0;
+      const nextExpiryDate =
+        typeof typedEntry.nextExpiryDate === "string" && typedEntry.nextExpiryDate
+          ? typedEntry.nextExpiryDate
+          : "";
+      const warningDays = getProductWarningDays(productId);
+
+      const batches = normalizeBatches(typedEntry.batches);
+
+      const normalizedBatches = batches.length
+        ? batches
+        : fallbackBatchesFromSummary(
+            storeId,
+            productId,
+            onHand,
+            expiredUnits,
+            nearExpiryUnits,
+            nextExpiryDate,
+          );
+
+      const derived = deriveInventoryFromBatches(normalizedBatches, warningDays);
+
+      if (!storeId || !productId) return null;
+
+      return {
+        storeId,
+        productId,
+        batches: normalizedBatches,
+        ...derived,
+      };
+    })
+    .filter(Boolean) as StoreInventoryItem[];
+}
+
 function cloneInitialState(): PrototypeStateData {
   return {
-    storeInventory: initialStoreInventory.map(item => ({...item})),
+    storeInventory: initialStoreInventory.map(item => ({
+      ...item,
+      batches: item.batches.map(batch => ({...batch})),
+    })),
     inventoryTransactions: initialInventoryTransactions.map(item => ({...item})),
     customerOrders: initialCustomerOrders.map(order => ({
       ...order,
@@ -51,7 +283,11 @@ function cloneInitialState(): PrototypeStateData {
       ...request,
       items: request.items.map(item => ({...item})),
     })),
-    shippingOrders: initialShippingOrders.map(order => ({...order})),
+    shippingOrders: initialShippingOrders.map(order => ({
+      ...order,
+      items: order.items.map(item => ({...item})),
+      statusHistory: order.statusHistory.map(event => ({...event})),
+    })),
     preferredRole: "store",
     selectedStoreId: stores[0]?.id ?? "",
   };
@@ -73,6 +309,9 @@ function normalizeInventoryTransactions(value: unknown): InventoryTransaction[] 
         occurredAt?: unknown;
         reference?: unknown;
         note?: unknown;
+        batchId?: unknown;
+        expiryDate?: unknown;
+        expiryStatus?: unknown;
       };
 
       const id = typeof typedEntry.id === "string" ? typedEntry.id : "";
@@ -94,6 +333,16 @@ function normalizeInventoryTransactions(value: unknown): InventoryTransaction[] 
       const reference =
         typeof typedEntry.reference === "string" ? typedEntry.reference : "";
       const note = typeof typedEntry.note === "string" ? typedEntry.note : "";
+      const batchId =
+        typeof typedEntry.batchId === "string" ? typedEntry.batchId : undefined;
+      const expiryDate =
+        typeof typedEntry.expiryDate === "string" ? typedEntry.expiryDate : undefined;
+      const expiryStatus =
+        typedEntry.expiryStatus === "Healthy" ||
+        typedEntry.expiryStatus === "Near Expiry" ||
+        typedEntry.expiryStatus === "Expired"
+          ? typedEntry.expiryStatus
+          : undefined;
 
       if (
         !id ||
@@ -116,6 +365,9 @@ function normalizeInventoryTransactions(value: unknown): InventoryTransaction[] 
         occurredAt,
         reference,
         note,
+        batchId,
+        expiryDate,
+        expiryStatus,
       };
     })
     .filter(Boolean) as InventoryTransaction[];
@@ -225,14 +477,28 @@ function normalizeCustomerOrders(value: unknown): CustomerOrder[] {
         ? typedOrder.items
             .map(item => {
               if (!item || typeof item !== "object") return null;
-              const typedItem = item as {productId?: unknown; quantity?: unknown};
+              const typedItem = item as {
+                productId?: unknown;
+                quantity?: unknown;
+                batchId?: unknown;
+                expiryDate?: unknown;
+              };
               if (typeof typedItem.productId !== "string") return null;
               const quantity =
                 typeof typedItem.quantity === "number" && typedItem.quantity > 0
                   ? Math.floor(typedItem.quantity)
                   : 0;
               if (!quantity) return null;
-              return {productId: typedItem.productId, quantity};
+              return {
+                productId: typedItem.productId,
+                quantity,
+                batchId:
+                  typeof typedItem.batchId === "string" ? typedItem.batchId : undefined,
+                expiryDate:
+                  typeof typedItem.expiryDate === "string"
+                    ? typedItem.expiryDate
+                    : undefined,
+              };
             })
             .filter(Boolean)
         : [];
@@ -319,19 +585,44 @@ function normalizeShippingOrders(
         typedOrder.currentLocation.trim().length
           ? typedOrder.currentLocation
           : "Cebu Distribution Center";
+      const fallbackExpiryDate =
+        typeof eta === "string" && /^\d{4}-\d{2}-\d{2}$/.test(eta)
+          ? eta
+          : typeof shipDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(shipDate)
+            ? shipDate
+            : formatDate(new Date());
 
       const parsedItems = Array.isArray(typedOrder.items)
         ? typedOrder.items
-            .map(item => {
+            .map((item, index) => {
               if (!item || typeof item !== "object") return null;
-              const typedItem = item as {productId?: unknown; quantity?: unknown};
+              const typedItem = item as {
+                productId?: unknown;
+                quantity?: unknown;
+                batchId?: unknown;
+                expiryDate?: unknown;
+              };
               if (typeof typedItem.productId !== "string") return null;
               const quantity =
                 typeof typedItem.quantity === "number" && typedItem.quantity > 0
                   ? Math.floor(typedItem.quantity)
                   : 0;
               if (!quantity) return null;
-              return {productId: typedItem.productId, quantity};
+              const resolvedBatchId =
+                typeof typedItem.batchId === "string" && typedItem.batchId.trim().length
+                  ? typedItem.batchId
+                  : `${id}-${typedItem.productId}-line-${index + 1}`;
+              const resolvedExpiryDate =
+                typeof typedItem.expiryDate === "string" &&
+                typedItem.expiryDate.trim().length
+                  ? typedItem.expiryDate
+                  : fallbackExpiryDate;
+              return {
+                productId: typedItem.productId,
+                quantity,
+                batchId: resolvedBatchId,
+                expiryDate: resolvedExpiryDate,
+              };
             })
             .filter(Boolean)
         : [];
@@ -339,7 +630,12 @@ function normalizeShippingOrders(
       const fallbackItems =
         !parsedItems.length && requestId
           ? (reorderRequests.find(request => request.id === requestId)?.items ?? []).map(
-              item => ({productId: item.productId, quantity: item.requestedQty}),
+              (item, index) => ({
+                productId: item.productId,
+                quantity: item.requestedQty,
+                batchId: `${id}-${item.productId}-fallback-${index + 1}`,
+                expiryDate: fallbackExpiryDate,
+              }),
             )
           : [];
 
@@ -447,6 +743,61 @@ function buildStatusNote(status: ShippingStatus): string {
   return "Shipment delivered to branch";
 }
 
+function classifyExpiryStatus(productId: string, expiryDate: string): ExpiryStatus {
+  const now = Date.now();
+  const expiryMs = parseExpiryDateToMs(expiryDate);
+  if (expiryMs < now) return "Expired";
+
+  const warningDays = getProductWarningDays(productId);
+  const daysToExpiry = Math.floor((expiryMs - now) / DAY_IN_MS);
+  return daysToExpiry <= warningDays ? "Near Expiry" : "Healthy";
+}
+
+function buildDispatchBatchItems(
+  requestId: string,
+  items: ReorderRequest["items"],
+): ShippingOrderItem[] {
+  const now = Date.now();
+
+  return items
+    .flatMap(item => {
+      const safeQty =
+        Number.isFinite(item.requestedQty) && item.requestedQty > 0
+          ? Math.floor(item.requestedQty)
+          : 0;
+      if (!safeQty) return [];
+
+      const warningDays = getProductWarningDays(item.productId);
+      const nearExpiryQty = safeQty >= 4 ? Math.floor(safeQty * 0.35) : 0;
+      const healthyQty = safeQty - nearExpiryQty;
+      const lines: ShippingOrderItem[] = [];
+
+      if (nearExpiryQty > 0) {
+        lines.push({
+          productId: item.productId,
+          quantity: nearExpiryQty,
+          batchId: `wh-${requestId}-${item.productId}-near`,
+          expiryDate: formatDate(new Date(now + Math.max(2, warningDays - 5) * DAY_IN_MS)),
+        });
+      }
+
+      if (healthyQty > 0) {
+        lines.push({
+          productId: item.productId,
+          quantity: healthyQty,
+          batchId: `wh-${requestId}-${item.productId}-healthy`,
+          expiryDate: formatDate(new Date(now + (warningDays + 90) * DAY_IN_MS)),
+        });
+      }
+
+      return lines;
+    })
+    .sort(
+      (a, b) =>
+        parseExpiryDateToMs(a.expiryDate ?? "") - parseExpiryDateToMs(b.expiryDate ?? ""),
+    );
+}
+
 function loadState(): PrototypeStateData {
   const fallback = cloneInitialState();
 
@@ -465,7 +816,7 @@ function loadState(): PrototypeStateData {
 
     return {
       storeInventory: Array.isArray(parsed.storeInventory)
-        ? parsed.storeInventory
+        ? normalizeStoreInventory(parsed.storeInventory)
         : fallback.storeInventory,
       inventoryTransactions: normalizeInventoryTransactions(parsed.inventoryTransactions),
       customerOrders: normalizeCustomerOrders(parsed.customerOrders),
@@ -572,10 +923,41 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
                 return item;
               }
 
-              const delta = movementType === "IN" ? safeQty : -safeQty;
+              const warningDays = getProductWarningDays(productId);
+              let nextBatches = [...item.batches];
+
+              if (movementType === "IN") {
+                nextBatches = [
+                  ...nextBatches,
+                  {
+                    batchId: `manual-${Date.now()}-${productId}`,
+                    quantity: safeQty,
+                    expiryDate: formatDate(
+                      new Date(Date.now() + (warningDays + 60) * DAY_IN_MS),
+                    ),
+                  },
+                ];
+              } else {
+                let remaining = safeQty;
+                nextBatches = [...nextBatches]
+                  .sort(
+                    (a, b) =>
+                      parseExpiryDateToMs(a.expiryDate) - parseExpiryDateToMs(b.expiryDate),
+                  )
+                  .map(batch => {
+                    if (remaining <= 0) return batch;
+                    const deduction = Math.min(batch.quantity, remaining);
+                    remaining -= deduction;
+                    return {...batch, quantity: batch.quantity - deduction};
+                  })
+                  .filter(batch => batch.quantity > 0);
+              }
+
+              const derived = deriveInventoryFromBatches(nextBatches, warningDays);
               return {
                 ...item,
-                onHand: Math.max(0, item.onHand + delta),
+                batches: nextBatches,
+                ...derived,
               };
             }),
             inventoryTransactions: [nextTransaction, ...previous.inventoryTransactions],
@@ -629,10 +1011,7 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
             shipDate: formatDate(shipDate),
             eta: formatDate(etaDate),
             status: input.status,
-            items: request.items.map(item => ({
-              productId: item.productId,
-              quantity: item.requestedQty,
-            })),
+            items: buildDispatchBatchItems(request.id, request.items),
             carrier: "Cebu Health Logistics",
             trackingCode: `DEMO-${nextId.toUpperCase()}`,
             currentLocation: buildShipmentLocation(
@@ -737,25 +1116,32 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
           const storeName =
             stores.find(store => store.id === shipment.storeId)?.name ??
             "Destination branch";
-          const itemMap = shipment.items.reduce(
+          const shipmentItemsByProduct = shipment.items.reduce(
             (acc, item) => {
-              acc[item.productId] = (acc[item.productId] ?? 0) + item.quantity;
+              const group = acc[item.productId] ?? [];
+              group.push(item);
+              acc[item.productId] = group;
               return acc;
             },
-            {} as Record<string, number>,
+            {} as Record<string, ShippingOrderItem[]>,
           );
 
           let transactionSeed = previous.inventoryTransactions;
-          const transactions = Object.entries(itemMap).map(([productId, quantity]) => {
+          const transactions = shipment.items.map((item, index) => {
+            const inboundExpiryDate =
+              item.expiryDate ?? formatDate(new Date(Date.now() + 120 * DAY_IN_MS));
             const nextTransaction: InventoryTransaction = {
               id: buildInventoryTransactionId(transactionSeed),
               storeId: shipment.storeId,
-              productId,
+              productId: item.productId,
               movementType: "IN",
-              quantity,
+              quantity: item.quantity,
               occurredAt: timestamp,
               reference: shipment.id,
-              note: "Shipment received",
+              note: "Shipment received (batch intake)",
+              batchId: item.batchId ?? `${shipment.id}-${item.productId}-${index + 1}`,
+              expiryDate: inboundExpiryDate,
+              expiryStatus: classifyExpiryStatus(item.productId, inboundExpiryDate),
             };
             transactionSeed = [nextTransaction, ...transactionSeed];
             return nextTransaction;
@@ -764,8 +1150,42 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
           return {
             ...previous,
             storeInventory: previous.storeInventory.map(item =>
-              item.storeId === shipment.storeId && itemMap[item.productId]
-                ? {...item, onHand: item.onHand + itemMap[item.productId]}
+              item.storeId === shipment.storeId &&
+              shipmentItemsByProduct[item.productId]?.length
+                ? {
+                    ...item,
+                    batches: [
+                      ...item.batches,
+                      ...shipmentItemsByProduct[item.productId].map(
+                        (shipmentItem, lineIndex) => ({
+                          batchId:
+                            shipmentItem.batchId ??
+                            `${shipment.id}-${item.productId}-${lineIndex + 1}`,
+                          quantity: shipmentItem.quantity,
+                          expiryDate:
+                            shipmentItem.expiryDate ??
+                            formatDate(new Date(Date.now() + 120 * DAY_IN_MS)),
+                        }),
+                      ),
+                    ],
+                    ...deriveInventoryFromBatches(
+                      [
+                        ...item.batches,
+                        ...shipmentItemsByProduct[item.productId].map(
+                          (shipmentItem, lineIndex) => ({
+                            batchId:
+                              shipmentItem.batchId ??
+                              `${shipment.id}-${item.productId}-${lineIndex + 1}`,
+                            quantity: shipmentItem.quantity,
+                            expiryDate:
+                              shipmentItem.expiryDate ??
+                              formatDate(new Date(Date.now() + 120 * DAY_IN_MS)),
+                          }),
+                        ),
+                      ],
+                      getProductWarningDays(item.productId),
+                    ),
+                  }
                 : item,
             ),
             shippingOrders: previous.shippingOrders.map(order =>
@@ -826,10 +1246,22 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
             const targetItem = previous.storeInventory.find(
               item => item.storeId === input.storeId && item.productId === productId,
             );
-            return Boolean(targetItem && targetItem.onHand >= quantity);
+            return Boolean(targetItem && getUsableStock(targetItem) >= quantity);
           });
 
           if (!hasStock) return previous;
+
+          const allAllocations: BatchAllocation[] = [];
+          for (const [productId, quantity] of Object.entries(groupedItems)) {
+            const inventoryItem = previous.storeInventory.find(
+              item => item.storeId === input.storeId && item.productId === productId,
+            );
+            if (!inventoryItem) return previous;
+
+            const allocation = allocateFefoBatches(inventoryItem, quantity);
+            if (!allocation) return previous;
+            allAllocations.push(...allocation);
+          }
 
           const nextId = buildCustomerOrderId(previous.customerOrders);
           createdId = nextId;
@@ -844,37 +1276,70 @@ export function PrototypeStateProvider({children}: PropsWithChildren) {
             customerAddress: input.customerAddress.trim(),
             customerNotes: input.customerNotes.trim(),
             orderRef: input.orderRef.trim(),
-            items: Object.entries(groupedItems).map(([productId, quantity]) => ({
-              productId,
-              quantity,
+            items: allAllocations.map(allocation => ({
+              productId: allocation.productId,
+              quantity: allocation.quantity,
+              batchId: allocation.batchId,
+              expiryDate: allocation.expiryDate,
             })),
             servedAt: new Date().toISOString(),
           };
 
           let transactionSeed = previous.inventoryTransactions;
-          const transactions = nextOrder.items.map(item => {
+          const transactions = allAllocations.map(allocation => {
             const nextTransaction: InventoryTransaction = {
               id: buildInventoryTransactionId(transactionSeed),
               storeId: input.storeId,
-              productId: item.productId,
+              productId: allocation.productId,
               movementType: "OUT",
-              quantity: item.quantity,
+              quantity: allocation.quantity,
               occurredAt: nextOrder.servedAt,
               reference: nextOrder.id,
-              note: `Customer order ${nextOrder.orderRef}`,
+              note: `Customer order ${nextOrder.orderRef} (FEFO batch deduction)`,
+              batchId: allocation.batchId,
+              expiryDate: allocation.expiryDate,
+              expiryStatus: allocation.expiryStatus,
             };
             transactionSeed = [nextTransaction, ...transactionSeed];
             return nextTransaction;
           });
 
+          const allocationByProduct = allAllocations.reduce(
+            (acc, allocation) => {
+              const group = acc[allocation.productId] ?? [];
+              group.push(allocation);
+              acc[allocation.productId] = group;
+              return acc;
+            },
+            {} as Record<string, BatchAllocation[]>,
+          );
+
           return {
             ...previous,
             storeInventory: previous.storeInventory.map(item =>
-              item.storeId === input.storeId && groupedItems[item.productId]
-                ? {
-                    ...item,
-                    onHand: Math.max(0, item.onHand - groupedItems[item.productId]),
-                  }
+              item.storeId === input.storeId && allocationByProduct[item.productId]
+                ? (() => {
+                    const allocations = allocationByProduct[item.productId];
+                    const nextBatches = item.batches
+                      .map(batch => {
+                        const deduction = allocations
+                          .filter(allocation => allocation.batchId === batch.batchId)
+                          .reduce((acc, allocation) => acc + allocation.quantity, 0);
+                        return {
+                          ...batch,
+                          quantity: Math.max(0, batch.quantity - deduction),
+                        };
+                      })
+                      .filter(batch => batch.quantity > 0);
+                    return {
+                      ...item,
+                      batches: nextBatches,
+                      ...deriveInventoryFromBatches(
+                        nextBatches,
+                        getProductWarningDays(item.productId),
+                      ),
+                    };
+                  })()
                 : item,
             ),
             customerProfiles: (() => {

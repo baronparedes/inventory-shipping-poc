@@ -3,6 +3,8 @@ Feature: Stakeholder reporting and dashboards
   I want access to comprehensive reports and dashboards
   So that I can make informed decisions about inventory, distribution, and branch performance
 
+  # Terms are defined in docs/glossary.md
+
   Scenario: View executive summary dashboard
     Given I am logged in as a stakeholder
     When I open the executive summary dashboard
@@ -15,12 +17,15 @@ Feature: Stakeholder reporting and dashboards
       | Top 5 slow-moving products              |
       | Total orders served (period selectable) |
       | Total refill requests (period selectable)|
+      | Near-expiry quantity and exposure       |
+      | Expired quantity and exposure           |
 
   Scenario: View inventory aging report
     Given I am on the reporting page
     When I select the inventory aging report
     Then I should see breakdowns by product, branch, and warehouse
     And I should see quantities and value of stock by age bucket (e.g., <30d, 31-60d, 61-90d, >90d)
+    And I should see expiration-risk breakdowns aligned with configured thresholds
 
   Scenario: View branch performance dashboard
     Given I am on the dashboards page
@@ -49,6 +54,7 @@ Feature: Stakeholder reporting and dashboards
       | Product-level movement (IN/OUT) by period |
       | Demand forecast (trend)                   |
       | Branch-level demand breakdown             |
+      | Near-expiry and expired movement context  |
 
   Scenario: Export reports for offline analysis
     Given I am viewing any report
@@ -60,3 +66,9 @@ Feature: Stakeholder reporting and dashboards
     When I apply filters (date range, branch, product, center)
     Then all metrics and charts should update accordingly
     And I should be able to drill down to see underlying transactions or records
+
+  Scenario: View expiry trend dashboard
+    Given I am logged in as a stakeholder
+    When I open expiry trend reporting
+    Then I should see trend lines for near-expiry and expired quantities over time
+    And I should be able to break down results by branch, product, and distribution center

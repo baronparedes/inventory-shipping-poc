@@ -1,6 +1,7 @@
 import type {
   CustomerProfile,
   CustomerOrder,
+  InventoryBatch,
   InventoryTransaction,
   Product,
   ReorderRequest,
@@ -113,6 +114,7 @@ export const products: Product[] = [
     category: "Prescription",
     reorderThreshold: 60,
     warehouseStock: 950,
+    expiryWarningDays: 45,
   },
   {
     id: "prd-flour",
@@ -121,6 +123,7 @@ export const products: Product[] = [
     category: "Prescription",
     reorderThreshold: 55,
     warehouseStock: 840,
+    expiryWarningDays: 45,
   },
   {
     id: "prd-tomato",
@@ -129,6 +132,7 @@ export const products: Product[] = [
     category: "OTC",
     reorderThreshold: 75,
     warehouseStock: 1280,
+    expiryWarningDays: 30,
   },
   {
     id: "prd-salmon",
@@ -137,6 +141,7 @@ export const products: Product[] = [
     category: "Cold Chain",
     reorderThreshold: 28,
     warehouseStock: 260,
+    expiryWarningDays: 20,
   },
   {
     id: "prd-wrap",
@@ -145,6 +150,7 @@ export const products: Product[] = [
     category: "Supplies",
     reorderThreshold: 120,
     warehouseStock: 2450,
+    expiryWarningDays: 60,
   },
   {
     id: "prd-label",
@@ -153,40 +159,195 @@ export const products: Product[] = [
     category: "Supplies",
     reorderThreshold: 90,
     warehouseStock: 710,
+    expiryWarningDays: 60,
   },
 ];
 
-const inventoryProfiles: Array<Array<Omit<StoreInventoryItem, "storeId">>> = [
+const inventoryProfiles: Array<Array<Omit<StoreInventoryItem, "storeId" | "batches">>> = [
   [
-    {productId: "prd-rice", onHand: 21},
-    {productId: "prd-flour", onHand: 14},
-    {productId: "prd-tomato", onHand: 19},
-    {productId: "prd-salmon", onHand: 11},
-    {productId: "prd-wrap", onHand: 43},
-    {productId: "prd-label", onHand: 24},
+    {
+      productId: "prd-rice",
+      onHand: 21,
+      expiredUnits: 2,
+      nearExpiryUnits: 5,
+      nextExpiryDate: "2026-06-18",
+    },
+    {
+      productId: "prd-flour",
+      onHand: 14,
+      expiredUnits: 1,
+      nearExpiryUnits: 3,
+      nextExpiryDate: "2026-06-12",
+    },
+    {
+      productId: "prd-tomato",
+      onHand: 19,
+      expiredUnits: 0,
+      nearExpiryUnits: 4,
+      nextExpiryDate: "2026-06-21",
+    },
+    {
+      productId: "prd-salmon",
+      onHand: 11,
+      expiredUnits: 0,
+      nearExpiryUnits: 5,
+      nextExpiryDate: "2026-06-09",
+    },
+    {
+      productId: "prd-wrap",
+      onHand: 43,
+      expiredUnits: 0,
+      nearExpiryUnits: 2,
+      nextExpiryDate: "2026-08-03",
+    },
+    {
+      productId: "prd-label",
+      onHand: 24,
+      expiredUnits: 0,
+      nearExpiryUnits: 1,
+      nextExpiryDate: "2026-08-20",
+    },
   ],
   [
-    {productId: "prd-rice", onHand: 48},
-    {productId: "prd-flour", onHand: 22},
-    {productId: "prd-tomato", onHand: 12},
-    {productId: "prd-salmon", onHand: 18},
-    {productId: "prd-wrap", onHand: 39},
-    {productId: "prd-label", onHand: 19},
+    {
+      productId: "prd-rice",
+      onHand: 48,
+      expiredUnits: 4,
+      nearExpiryUnits: 7,
+      nextExpiryDate: "2026-06-25",
+    },
+    {
+      productId: "prd-flour",
+      onHand: 22,
+      expiredUnits: 2,
+      nearExpiryUnits: 4,
+      nextExpiryDate: "2026-06-19",
+    },
+    {
+      productId: "prd-tomato",
+      onHand: 12,
+      expiredUnits: 1,
+      nearExpiryUnits: 3,
+      nextExpiryDate: "2026-06-11",
+    },
+    {
+      productId: "prd-salmon",
+      onHand: 18,
+      expiredUnits: 0,
+      nearExpiryUnits: 6,
+      nextExpiryDate: "2026-06-08",
+    },
+    {
+      productId: "prd-wrap",
+      onHand: 39,
+      expiredUnits: 0,
+      nearExpiryUnits: 2,
+      nextExpiryDate: "2026-08-12",
+    },
+    {
+      productId: "prd-label",
+      onHand: 19,
+      expiredUnits: 0,
+      nearExpiryUnits: 1,
+      nextExpiryDate: "2026-08-27",
+    },
   ],
   [
-    {productId: "prd-rice", onHand: 28},
-    {productId: "prd-flour", onHand: 11},
-    {productId: "prd-tomato", onHand: 16},
-    {productId: "prd-salmon", onHand: 13},
-    {productId: "prd-wrap", onHand: 37},
-    {productId: "prd-label", onHand: 26},
+    {
+      productId: "prd-rice",
+      onHand: 28,
+      expiredUnits: 1,
+      nearExpiryUnits: 5,
+      nextExpiryDate: "2026-06-23",
+    },
+    {
+      productId: "prd-flour",
+      onHand: 11,
+      expiredUnits: 1,
+      nearExpiryUnits: 2,
+      nextExpiryDate: "2026-06-10",
+    },
+    {
+      productId: "prd-tomato",
+      onHand: 16,
+      expiredUnits: 0,
+      nearExpiryUnits: 3,
+      nextExpiryDate: "2026-06-16",
+    },
+    {
+      productId: "prd-salmon",
+      onHand: 13,
+      expiredUnits: 0,
+      nearExpiryUnits: 4,
+      nextExpiryDate: "2026-06-07",
+    },
+    {
+      productId: "prd-wrap",
+      onHand: 37,
+      expiredUnits: 0,
+      nearExpiryUnits: 2,
+      nextExpiryDate: "2026-08-08",
+    },
+    {
+      productId: "prd-label",
+      onHand: 26,
+      expiredUnits: 0,
+      nearExpiryUnits: 1,
+      nextExpiryDate: "2026-08-15",
+    },
   ],
 ];
+
+function buildSeedBatches(
+  storeId: string,
+  productId: string,
+  onHand: number,
+  expiredUnits: number,
+  nearExpiryUnits: number,
+  nextExpiryDate: string,
+): InventoryBatch[] {
+  const healthyUnits = Math.max(0, onHand - expiredUnits - nearExpiryUnits);
+  const batches: InventoryBatch[] = [];
+
+  if (expiredUnits > 0) {
+    batches.push({
+      batchId: `${storeId}-${productId}-expired`,
+      quantity: expiredUnits,
+      expiryDate: "2026-05-15",
+    });
+  }
+
+  if (nearExpiryUnits > 0) {
+    batches.push({
+      batchId: `${storeId}-${productId}-near`,
+      quantity: nearExpiryUnits,
+      expiryDate: nextExpiryDate,
+    });
+  }
+
+  if (healthyUnits > 0) {
+    batches.push({
+      batchId: `${storeId}-${productId}-healthy`,
+      quantity: healthyUnits,
+      expiryDate: "2026-10-15",
+    });
+  }
+
+  return batches;
+}
 
 export const storeInventory: StoreInventoryItem[] = stores.flatMap((store, index) => {
   const profile = inventoryProfiles[index % inventoryProfiles.length];
   return profile.map(item => ({
     storeId: store.id,
+    batches: buildSeedBatches(
+      store.id,
+      item.productId,
+      item.onHand,
+      item.expiredUnits,
+      item.nearExpiryUnits,
+      item.nextExpiryDate,
+    ),
     ...item,
   }));
 });
@@ -259,8 +420,18 @@ export const shippingOrders: ShippingOrder[] = [
     eta: "2026-05-18",
     status: "Delivered",
     items: [
-      {productId: "prd-wrap", quantity: 80},
-      {productId: "prd-label", quantity: 42},
+      {
+        productId: "prd-wrap",
+        quantity: 80,
+        batchId: "wh-req-1004-prd-wrap-healthy",
+        expiryDate: "2026-10-30",
+      },
+      {
+        productId: "prd-label",
+        quantity: 42,
+        batchId: "wh-req-1004-prd-label-healthy",
+        expiryDate: "2026-11-18",
+      },
     ],
     carrier: "Cebu Health Logistics",
     trackingCode: "CEB-TRK-768",
@@ -300,9 +471,42 @@ export const shippingOrders: ShippingOrder[] = [
     eta: "2026-05-22",
     status: "In Transit",
     items: [
-      {productId: "prd-rice", quantity: 40},
-      {productId: "prd-flour", quantity: 32},
-      {productId: "prd-salmon", quantity: 24},
+      {
+        productId: "prd-rice",
+        quantity: 14,
+        batchId: "wh-req-1008-prd-rice-near",
+        expiryDate: "2026-06-28",
+      },
+      {
+        productId: "prd-rice",
+        quantity: 26,
+        batchId: "wh-req-1008-prd-rice-healthy",
+        expiryDate: "2026-11-02",
+      },
+      {
+        productId: "prd-flour",
+        quantity: 11,
+        batchId: "wh-req-1008-prd-flour-near",
+        expiryDate: "2026-06-29",
+      },
+      {
+        productId: "prd-flour",
+        quantity: 21,
+        batchId: "wh-req-1008-prd-flour-healthy",
+        expiryDate: "2026-11-03",
+      },
+      {
+        productId: "prd-salmon",
+        quantity: 8,
+        batchId: "wh-req-1008-prd-salmon-near",
+        expiryDate: "2026-06-12",
+      },
+      {
+        productId: "prd-salmon",
+        quantity: 16,
+        batchId: "wh-req-1008-prd-salmon-healthy",
+        expiryDate: "2026-10-12",
+      },
     ],
     carrier: "Cebu Health Logistics",
     trackingCode: "CEB-TRK-770",
@@ -336,8 +540,30 @@ export const shippingOrders: ShippingOrder[] = [
     eta: "2026-05-23",
     status: "Packed",
     items: [
-      {productId: "prd-tomato", quantity: 36},
-      {productId: "prd-label", quantity: 22},
+      {
+        productId: "prd-tomato",
+        quantity: 12,
+        batchId: "wh-req-1010-prd-tomato-near",
+        expiryDate: "2026-06-26",
+      },
+      {
+        productId: "prd-tomato",
+        quantity: 24,
+        batchId: "wh-req-1010-prd-tomato-healthy",
+        expiryDate: "2026-10-28",
+      },
+      {
+        productId: "prd-label",
+        quantity: 7,
+        batchId: "wh-req-1010-prd-label-near",
+        expiryDate: "2026-07-20",
+      },
+      {
+        productId: "prd-label",
+        quantity: 15,
+        batchId: "wh-req-1010-prd-label-healthy",
+        expiryDate: "2026-11-20",
+      },
     ],
     carrier: "Cebu Health Logistics",
     trackingCode: "CEB-TRK-771",
@@ -365,8 +591,30 @@ export const shippingOrders: ShippingOrder[] = [
     eta: "2026-05-24",
     status: "Draft",
     items: [
-      {productId: "prd-rice", quantity: 30},
-      {productId: "prd-tomato", quantity: 40},
+      {
+        productId: "prd-rice",
+        quantity: 10,
+        batchId: "wh-req-1006-prd-rice-near",
+        expiryDate: "2026-06-27",
+      },
+      {
+        productId: "prd-rice",
+        quantity: 20,
+        batchId: "wh-req-1006-prd-rice-healthy",
+        expiryDate: "2026-10-31",
+      },
+      {
+        productId: "prd-tomato",
+        quantity: 14,
+        batchId: "wh-req-1006-prd-tomato-near",
+        expiryDate: "2026-06-25",
+      },
+      {
+        productId: "prd-tomato",
+        quantity: 26,
+        batchId: "wh-req-1006-prd-tomato-healthy",
+        expiryDate: "2026-10-27",
+      },
     ],
     carrier: "Cebu Health Logistics",
     trackingCode: "CEB-TRK-772",

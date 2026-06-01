@@ -157,6 +157,33 @@ export function StoreCustomerOrders() {
       return;
     }
 
+    const stockAssessment = draftOrderItems.map(item => {
+      const inventoryItem = inventoryByProductId.get(item.productId);
+      const onHand = inventoryItem?.onHand ?? 0;
+      const expiredUnits = inventoryItem?.expiredUnits ?? 0;
+      const nearExpiryUnits = inventoryItem?.nearExpiryUnits ?? 0;
+      const usableStock = Math.max(0, onHand - expiredUnits);
+
+      return {
+        ...item,
+        usableStock,
+        nearExpiryUnits,
+      };
+    });
+
+    const hasExpiredOnlyBlock = stockAssessment.some(
+      item => item.usableStock <= 0 || item.quantity > item.usableStock,
+    );
+
+    if (hasExpiredOnlyBlock) {
+      setFeedback(
+        "Order blocked: one or more medication lines only have expired or insufficient usable stock.",
+      );
+      return;
+    }
+
+    const hasNearExpiryWarning = stockAssessment.some(item => item.nearExpiryUnits > 0);
+
     const createdId = serveCustomerOrder({
       storeId: defaultStore.id,
       customerId: selectedCustomerId || undefined,
@@ -174,7 +201,11 @@ export function StoreCustomerOrders() {
       return;
     }
 
-    setFeedback(`Customer order ${createdId} saved and inventory updated.`);
+    setFeedback(
+      hasNearExpiryWarning
+        ? `Customer order ${createdId} saved. Warning: near-expiry stock was used by FEFO priority.`
+        : `Customer order ${createdId} saved and inventory updated.`,
+    );
     setSelectedCustomerId("");
     setCustomerName("");
     setCustomerPhone("");
@@ -363,6 +394,8 @@ export function StoreCustomerOrders() {
               <th>SKU</th>
               <th>Medication</th>
               <th>On Hand</th>
+              <th>Usable</th>
+              <th>Expiry Risk</th>
               <th>Order Qty</th>
               <th>Action</th>
             </tr>
@@ -372,12 +405,40 @@ export function StoreCustomerOrders() {
               draftOrderItems.map(item => {
                 const row = inventoryByProductId.get(item.productId);
                 const product = getProductById(item.productId);
+                const onHand = row?.onHand ?? 0;
+                const expiredUnits = row?.expiredUnits ?? 0;
+                const nearExpiryUnits = row?.nearExpiryUnits ?? 0;
+                const usableStock = Math.max(0, onHand - expiredUnits);
+                const fefoBatch = [...(row?.batches ?? [])]
+                  .filter(batch => {
+                    if (batch.quantity <= 0) return false;
+                    return new Date(batch.expiryDate).getTime() >= Date.now();
+                  })
+                  .sort(
+                    (a, b) =>
+                      new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime(),
+                  )[0];
 
                 return (
                   <tr key={item.productId}>
                     <td>{product?.sku}</td>
                     <td>{product?.name}</td>
-                    <td>{row?.onHand ?? 0}</td>
+                    <td>{onHand}</td>
+                    <td>{usableStock}</td>
+                    <td>
+                      {expiredUnits > 0 ? (
+                        <span className="status-badge critical">Expired units present</span>
+                      ) : nearExpiryUnits > 0 ? (
+                        <span className="status-badge warning">Near-expiry warning</span>
+                      ) : (
+                        <span className="status-badge healthy">Healthy</span>
+                      )}
+                      <div className="muted-copy" style={{fontSize: "0.72rem"}}>
+                        {fefoBatch
+                          ? `FEFO next: ${fefoBatch.expiryDate} (${fefoBatch.batchId})`
+                          : "FEFO next: no eligible batch"}
+                      </div>
+                    </td>
                     <td>
                       <input
                         type="number"
@@ -405,7 +466,7 @@ export function StoreCustomerOrders() {
               })
             ) : (
               <tr>
-                <td colSpan={5}>No items in this customer order yet.</td>
+                <td colSpan={7}>No items in this customer order yet.</td>
               </tr>
             )}
           </tbody>

@@ -4,6 +4,23 @@ This plan provides a vertical slicing approach for implementing all features, co
 
 ---
 
+## 0. Documentation Baseline (Gate Before Coding)
+- Update all Gherkin feature files with the agreed expiration-management behaviors.
+- Publish and maintain canonical terminology in `docs/glossary.md`.
+- Align operational flow details in `docs/inventory-flow.md` with feature acceptance criteria.
+- Keep guided tour scripts in `src/components/AppShell.tsx` synchronized with implemented workflows and policy behavior.
+- Confirm requirements consistency before starting prototype implementation.
+
+Expiration policy baseline:
+- Expired batches are blocked from dispensing.
+- Near-expiry batches show warnings but can still be dispensed.
+- FEFO applies to non-expired batches.
+- Warning thresholds are configurable by product/category.
+- Dispatch creation includes FEFO batch preview with batch ID and expiry visibility before confirmation.
+- Shipment quality checks require every shipment line to include batch ID and expiry date.
+
+---
+
 ## 1. Foundation & Access
 - User authentication, context selection, and permissions (branches, distribution centers, stakeholder)
 - Context switching and access control for all roles
@@ -48,22 +65,26 @@ This plan provides a vertical slicing approach for implementing all features, co
 
 ## Implementation Order (Vertical Slices)
 
-1. **User Access & Context**
+1. **Documentation Baseline (Required Gate)**
+   - Update all relevant feature specs first
+   - Update glossary and flow documentation
+   - Freeze baseline acceptance criteria for implementation
+2. **User Access & Context**
    - Auth, context selection, role/permission enforcement
    - Stakeholder dashboard shell (empty state)
-2. **Branch Inventory & Orders**
+3. **Branch Inventory & Orders**
    - Inventory view, inbound shipments, quality check/returns
    - Customer order creation, order history, returning customer
-3. **Distribution Inventory & Dispatch**
+4. **Distribution Inventory & Dispatch**
    - DC inventory management, movement ledger
    - Refill request (any med), dispatch creation, prevent over-dispatch
-4. **Shipment Tracking & Real-Time**
+5. **Shipment Tracking & Real-Time**
    - Real-time shipment tracking for branches
    - Movement history, notifications, partial/return flows
-5. **Reporting & Stakeholder Dashboards**
+6. **Reporting & Stakeholder Dashboards**
    - Executive summary, inventory aging, performance dashboards, product movement
    - Export, filtering, drill-down
-6. **Audit & History**
+7. **Audit & History**
    - Complete movement, order, shipment, and adjustment logs
    - Stakeholder and admin audit views
 

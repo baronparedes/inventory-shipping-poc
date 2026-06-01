@@ -89,18 +89,29 @@ export function StoreInventory() {
               <th>SKU</th>
               <th>Medication</th>
               <th>On Hand</th>
+              <th>Usable</th>
+              <th>Expired</th>
+              <th>Near Expiry</th>
+              <th>Next Expiry</th>
               <th>Weekly Outflow</th>
             </tr>
           </thead>
           <tbody>
-            {inventoryRows.map(row => (
-              <tr key={row.productId}>
-                <td>{row.product?.sku}</td>
-                <td>{row.product?.name}</td>
-                <td>{row.onHand}</td>
-                <td>{weeklyDispenseByProduct[row.productId] ?? 0}</td>
-              </tr>
-            ))}
+            {inventoryRows.map(row => {
+              const usableStock = Math.max(0, row.onHand - row.expiredUnits);
+              return (
+                <tr key={row.productId}>
+                  <td>{row.product?.sku}</td>
+                  <td>{row.product?.name}</td>
+                  <td>{row.onHand}</td>
+                  <td>{usableStock}</td>
+                  <td>{row.expiredUnits}</td>
+                  <td>{row.nearExpiryUnits}</td>
+                  <td>{row.nextExpiryDate || "N/A"}</td>
+                  <td>{weeklyDispenseByProduct[row.productId] ?? 0}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </article>
@@ -250,14 +261,18 @@ export function StoreInventory() {
                 <th>SKU</th>
                 <th>Medication</th>
                 <th>Shipment Qty</th>
+                <th>Batch ID</th>
+                <th>Expiry Date</th>
               </tr>
             </thead>
             <tbody>
-              {selectedShipment.items.map(item => (
-                <tr key={item.productId}>
+              {selectedShipment.items.map((item, index) => (
+                <tr key={`${item.productId}-${item.batchId ?? "unassigned"}-${index}`}>
                   <td>{getProductById(item.productId)?.sku}</td>
                   <td>{getProductById(item.productId)?.name}</td>
                   <td>{item.quantity}</td>
+                  <td>{item.batchId}</td>
+                  <td>{item.expiryDate}</td>
                 </tr>
               ))}
             </tbody>

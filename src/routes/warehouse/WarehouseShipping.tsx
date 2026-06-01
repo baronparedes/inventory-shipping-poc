@@ -1,6 +1,24 @@
 import {useEffect, useMemo, useState} from "react";
-import {getProductById, getStoreById} from "../../mocks/mockData";
+import {getProductById, getStoreById, products} from "../../mocks/mockData";
 import {usePrototypeState} from "../../state/usePrototypeState";
+
+interface DispatchPreviewLine {
+  productId: string;
+  quantity: number;
+  batchId: string;
+  expiryDate: string;
+  expiryStatus: "Near Expiry" | "Healthy";
+}
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+function formatDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function getWarningDays(productId: string): number {
+  return products.find(product => product.id === productId)?.expiryWarningDays ?? 30;
+}
 
 export function WarehouseShipping() {
   const {reorderRequests, shippingOrders, createShippingOrder, updateShippingStatus} =
@@ -90,6 +108,57 @@ export function WarehouseShipping() {
     () => shippingOrders.find(order => order.id === selectedTrackingShipmentId),
     [shippingOrders, selectedTrackingShipmentId],
   );
+
+  const dispatchPreviewBaseMs = useMemo(() => {
+    if (!selectedRequest?.createdAt) return 0;
+    const parsed = Date.parse(`${selectedRequest.createdAt}T00:00:00.000Z`);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }, [selectedRequest]);
+
+  const dispatchBatchPreview = useMemo(() => {
+    if (!selectedRequest) return [] as DispatchPreviewLine[];
+
+    return selectedRequest.items
+      .flatMap(item => {
+        const safeQty =
+          Number.isFinite(item.requestedQty) && item.requestedQty > 0
+            ? Math.floor(item.requestedQty)
+            : 0;
+        if (!safeQty) return [];
+
+        const warningDays = getWarningDays(item.productId);
+        const nearExpiryQty = safeQty >= 4 ? Math.floor(safeQty * 0.35) : 0;
+        const healthyQty = safeQty - nearExpiryQty;
+        const lines: DispatchPreviewLine[] = [];
+
+        if (nearExpiryQty > 0) {
+          lines.push({
+            productId: item.productId,
+            quantity: nearExpiryQty,
+            batchId: `wh-${selectedRequest.id}-${item.productId}-near`,
+            expiryDate: formatDate(
+              new Date(dispatchPreviewBaseMs + Math.max(2, warningDays - 5) * DAY_IN_MS),
+            ),
+            expiryStatus: "Near Expiry",
+          });
+        }
+
+        if (healthyQty > 0) {
+          lines.push({
+            productId: item.productId,
+            quantity: healthyQty,
+            batchId: `wh-${selectedRequest.id}-${item.productId}-healthy`,
+            expiryDate: formatDate(
+              new Date(dispatchPreviewBaseMs + (warningDays + 90) * DAY_IN_MS),
+            ),
+            expiryStatus: "Healthy",
+          });
+        }
+
+        return lines;
+      })
+      .sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
+  }, [dispatchPreviewBaseMs, selectedRequest]);
 
   return (
     <section className="section-spacing">
@@ -209,7 +278,7 @@ export function WarehouseShipping() {
                         Mark In Transit
                       </button>
                     ) : (
-                      <span className="muted-copy">-</span>
+                      <span className="muted-copy"></span>
                     )}
                     {order.status === "Draft" && (
                       <button
@@ -369,10 +438,10 @@ export function WarehouseShipping() {
               </thead>
               <tbody>
                 {selectedRequest?.items.length ? (
-                  selectedRequest.items.map(item => {
+                  selectedRequest.items.map((item, index) => {
                     const product = getProductById(item.productId);
                     return (
-                      <tr key={item.productId}>
+                      <tr key={`${item.productId}-${index}`}>
                         <td>{product?.sku}</td>
                         <td>{product?.name}</td>
                         <td>{item.requestedQty}</td>
@@ -484,10 +553,10 @@ export function WarehouseShipping() {
               </thead>
               <tbody>
                 {selectedRequest?.items.length ? (
-                  selectedRequest.items.map(item => {
+                  selectedRequest.items.map((item, index) => {
                     const product = getProductById(item.productId);
                     return (
-                      <tr key={item.productId}>
+                      <tr key={`${item.productId}-${index}`}>
                         <td>{product?.sku}</td>
                         <td>{product?.name}</td>
                         <td>{item.requestedQty}</td>
@@ -500,6 +569,54 @@ export function WarehouseShipping() {
                 ) : (
                   <tr>
                     <td colSpan={4}>Select a refill request to prepare dispatch items.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            <h4>FEFO Batch Preview</h4>
+            <p className="muted-copy">
+              Preview of batch-level dispatch lines that will be generated on save/confirm.
+            </p>
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Medication</th>
+                  <th>Batch ID</th>
+                  <th>Qty</th>
+                  <th>Expiry Date</th>
+                  <th>Expiry Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dispatchBatchPreview.length ? (
+                  dispatchBatchPreview.map((line, index) => {
+                    const product = getProductById(line.productId);
+                    return (
+                      <tr key={`${line.productId}-${line.batchId}-${index}`}>
+                        <td>{product?.sku ?? line.productId}</td>
+                        <td>{product?.name ?? line.productId}</td>
+                        <td>{line.batchId}</td>
+                        <td>{line.quantity}</td>
+                        <td>{line.expiryDate}</td>
+                        <td>
+                          <span
+                            className={`status-badge ${
+                              line.expiryStatus === "Near Expiry" ? "warning" : "healthy"
+                            }`}
+                          >
+                            {line.expiryStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={6}>
+                      Select a refill request to preview FEFO batch lines.
+                    </td>
                   </tr>
                 )}
               </tbody>
@@ -615,6 +732,33 @@ export function WarehouseShipping() {
                       <td>{event.note}</td>
                     </tr>
                   ))}
+              </tbody>
+            </table>
+
+            <h4>Dispatched Batch Lines</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Medication</th>
+                  <th>Qty</th>
+                  <th>Batch ID</th>
+                  <th>Expiry Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedTrackingShipment.items.map((item, index) => {
+                  const product = getProductById(item.productId);
+                  return (
+                    <tr key={`${item.productId}-${item.batchId ?? "unassigned"}-${index}`}>
+                      <td>{product?.sku ?? item.productId}</td>
+                      <td>{product?.name ?? item.productId}</td>
+                      <td>{item.quantity}</td>
+                      <td>{item.batchId}</td>
+                      <td>{item.expiryDate}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
